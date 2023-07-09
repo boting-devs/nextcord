@@ -423,12 +423,6 @@ class ConnectionState:
     def _remove_guild(self, guild: Guild) -> None:
         self._guilds.pop(guild.id, None)
 
-        for emoji in guild.emojis:
-            self._emojis.pop(emoji.id, None)
-
-        for sticker in guild.stickers:
-            self._stickers.pop(sticker.id, None)
-
         del guild
 
     @property
@@ -507,7 +501,7 @@ class ConnectionState:
         return (
             self._chunk_guilds
             and not guild.chunked
-            and not (self._intents.presences and not guild.large)
+            and not self._intents.presences
         )
 
     def _get_guild_channel(
@@ -1724,38 +1718,6 @@ class ConnectionState:
                 "GUILD_MEMBER_UPDATE referencing an unknown member ID: %s. Discarding.", user_id
             )
 
-    def parse_guild_emojis_update(self, data) -> None:
-        guild = self._get_guild(int(data["guild_id"]))
-        if guild is None:
-            _log.debug(
-                "GUILD_EMOJIS_UPDATE referencing an unknown guild ID: %s. Discarding.",
-                data["guild_id"],
-            )
-            return
-
-        before_emojis = guild.emojis
-        for emoji in before_emojis:
-            self._emojis.pop(emoji.id, None)
-        # guild won't be None here
-        guild.emojis = tuple(map(lambda d: self.store_emoji(guild, d), data["emojis"]))  # type: ignore
-        self.dispatch("guild_emojis_update", guild, before_emojis, guild.emojis)
-
-    def parse_guild_stickers_update(self, data) -> None:
-        guild = self._get_guild(int(data["guild_id"]))
-        if guild is None:
-            _log.debug(
-                "GUILD_STICKERS_UPDATE referencing an unknown guild ID: %s. Discarding.",
-                data["guild_id"],
-            )
-            return
-
-        before_stickers = guild.stickers
-        for emoji in before_stickers:
-            self._stickers.pop(emoji.id, None)
-        # guild won't be None here
-        guild.stickers = tuple(map(lambda d: self.store_sticker(guild, d), data["stickers"]))  # type: ignore
-        self.dispatch("guild_stickers_update", guild, before_stickers, guild.stickers)
-
     def _get_create_guild(self, data):
         if data.get("unavailable") is False:
             # GUILD_CREATE with unavailable in the response
@@ -2007,52 +1969,6 @@ class ConnectionState:
                 data["channel_id"],
             )
 
-    def parse_stage_instance_create(self, data) -> None:
-        guild = self._get_guild(int(data["guild_id"]))
-        if guild is not None:
-            stage_instance = StageInstance(guild=guild, state=self, data=data)
-            guild._stage_instances[stage_instance.id] = stage_instance
-            self.dispatch("stage_instance_create", stage_instance)
-        else:
-            _log.debug(
-                "STAGE_INSTANCE_CREATE referencing unknown guild ID: %s. Discarding.",
-                data["guild_id"],
-            )
-
-    def parse_stage_instance_update(self, data) -> None:
-        guild = self._get_guild(int(data["guild_id"]))
-        if guild is not None:
-            stage_instance = guild._stage_instances.get(int(data["id"]))
-            if stage_instance is not None:
-                old_stage_instance = copy.copy(stage_instance)
-                stage_instance._update(data)
-                self.dispatch("stage_instance_update", old_stage_instance, stage_instance)
-            else:
-                _log.debug(
-                    "STAGE_INSTANCE_UPDATE referencing unknown stage instance ID: %s. Discarding.",
-                    data["id"],
-                )
-        else:
-            _log.debug(
-                "STAGE_INSTANCE_UPDATE referencing unknown guild ID: %s. Discarding.",
-                data["guild_id"],
-            )
-
-    def parse_stage_instance_delete(self, data) -> None:
-        guild = self._get_guild(int(data["guild_id"]))
-        if guild is not None:
-            try:
-                stage_instance = guild._stage_instances.pop(int(data["id"]))
-            except KeyError:
-                pass
-            else:
-                self.dispatch("stage_instance_delete", stage_instance)
-        else:
-            _log.debug(
-                "STAGE_INSTANCE_DELETE referencing unknown guild ID: %s. Discarding.",
-                data["guild_id"],
-            )
-
     def parse_voice_state_update(self, data) -> None:
         guild = self._get_guild(utils.get_as_snowflake(data, "guild_id"))
         channel_id = utils.get_as_snowflake(data, "channel_id")
@@ -2177,11 +2093,6 @@ class ConnectionState:
             if channel is not None:
                 return channel
 
-    def get_scheduled_event(self, id: int) -> Optional[ScheduledEvent]:
-        for guild in self.guilds:
-            if event := guild.get_scheduled_event(id):
-                return event
-
     def create_message(
         self,
         *,
@@ -2194,94 +2105,6 @@ class ConnectionState:
         self, *, guild: Guild, data: ScheduledEventPayload
     ) -> ScheduledEvent:
         return ScheduledEvent(state=self, guild=guild, data=data)
-
-    def parse_guild_scheduled_event_create(self, data) -> None:
-        if guild := self._get_guild(int(data["guild_id"])):
-            event = self.create_scheduled_event(guild=guild, data=data)
-            guild._add_scheduled_event(event)
-            self.dispatch("guild_scheduled_event_create", event)
-        else:
-            _log.debug(
-                "GUILD_SCHEDULED_EVENT_CREATE referencing unknown guild " "ID: %s. Discarding.",
-                data["guild_id"],
-            )
-
-    def parse_guild_scheduled_event_update(self, data) -> None:
-        if guild := self._get_guild(int(data["guild_id"])):
-            if event := guild.get_scheduled_event(int(data["id"])):
-                old = copy.copy(event)
-                event._update(data)
-                self.dispatch("guild_scheduled_event_update", old, event)
-            else:
-                _log.debug(
-                    "GUILD_SCHEDULED_EVENT_UPDATE referencing unknown event " "ID: %s. Discarding.",
-                    data["id"],
-                )
-        else:
-            _log.debug(
-                "GUILD_SCHEDULED_EVENT_UPDATE referencing unknown guild " "ID: %s. Discarding.",
-                data["guild_id"],
-            )
-
-    def parse_guild_scheduled_event_delete(self, data) -> None:
-        if guild := self._get_guild(int(data["guild_id"])):
-            if event := guild.get_scheduled_event(int(data["id"])):
-                guild._remove_scheduled_event(event.id)
-                self.dispatch("guild_scheduled_event_delete", event)
-            else:
-                _log.debug(
-                    "GUILD_SCHEDULED_EVENT_DELETE referencing unknown event " "ID: %s. Discarding.",
-                    data["id"],
-                )
-        else:
-            _log.debug(
-                "GUILD_SCHEDULED_EVENT_DELETE referencing unknown guild " "ID: %s. Discarding.",
-                data["guild_id"],
-            )
-
-    def parse_guild_scheduled_event_user_add(self, data) -> None:
-        if guild := self._get_guild(int(data["guild_id"])):
-            if event := guild.get_scheduled_event(int(data["guild_scheduled_event_id"])):
-                u = ScheduledEventUser.from_id(
-                    event=event, user_id=int(data["user_id"]), state=self
-                )
-                event._add_user(u)
-                self.dispatch("guild_scheduled_event_user_add", event, u)
-            else:
-                _log.debug(
-                    "GUILD_SCHEDULED_EVENT_USER_ADD referencing unknown"
-                    " event ID: %s. Discarding.",
-                    data["user_id"],
-                )
-        else:
-            _log.debug(
-                "GUILD_SCHEDULED_EVENT_USER_ADD referencing unknown" " guild ID: %s. Discarding.",
-                data["guild_id"],
-            )
-
-    def parse_guild_scheduled_event_user_remove(self, data) -> None:
-        if guild := self._get_guild(int(data["guild_id"])):
-            if event := guild.get_scheduled_event(int(data["guild_scheduled_event_id"])):
-                event._remove_user(int(data["user_id"]))
-                self.dispatch(
-                    "guild_scheduled_event_user_remove",
-                    event,
-                    ScheduledEventUser.from_id(
-                        event=event, user_id=int(data["user_id"]), state=self
-                    ),
-                )
-            else:
-                _log.debug(
-                    "GUILD_SCHEDULED_EVENT_USER_REMOVE referencing unknown"
-                    " event ID: %s. Discarding.",
-                    data["user_id"],
-                )
-        else:
-            _log.debug(
-                "GUILD_SCHEDULED_EVENT_USER_REMOVE referencing unknown"
-                " guild ID: %s. Discarding.",
-                data["guild_id"],
-            )
 
     def parse_auto_moderation_rule_create(self, data) -> None:
         self.dispatch(

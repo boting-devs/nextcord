@@ -2145,14 +2145,6 @@ class StageChannel(VocalGuildChannel):
     ) -> StageChannel:
         return await self._clone_impl({}, name=name, reason=reason)
 
-    @property
-    def instance(self) -> Optional[StageInstance]:
-        """Optional[:class:`StageInstance`]: The running stage instance of the stage channel.
-
-        .. versionadded:: 2.0
-        """
-        return utils.get(self.guild.stage_instances, channel_id=self.id)
-
     async def create_instance(
         self,
         *,

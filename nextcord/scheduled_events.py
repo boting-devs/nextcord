@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 from .abc import Snowflake
 from .asset import Asset
 from .enums import ScheduledEventPrivacyLevel
-from .iterators import ScheduledEventUserIterator
 from .mixins import Hashable
 from .utils import MISSING, obj_to_base64_data, parse_time
 
@@ -417,33 +416,3 @@ class ScheduledEvent(Hashable):
             The user object, if found.
         """
         return self._users.get(user_id)
-
-    def fetch_users(
-        self,
-        *,
-        limit: int = 100,
-        with_member: bool = False,
-        before: Optional[Snowflake] = None,
-        after: Optional[Snowflake] = None,
-    ) -> ScheduledEventUserIterator:
-        """Fetch the users that are interested, returns an asyc iterator.
-
-        Parameters
-        ----------
-        limit: :class:`int`
-            Amount of users to fetch, by default 100
-        with_member: :class:`bool`
-            If the user objects should contain members too, by default False
-        before: Optional[:class:`int`]
-            A snowflake id to start with, useful for chunks of users, by default None
-        after: Optional[:class:`int`]
-            A snowflake id to end with, useful for chunks of usersby default None
-
-        Yields
-        ------
-        :class:`ScheduledEventUser`
-            A full event user object
-        """
-        return ScheduledEventUserIterator(
-            self.guild, self, limit=limit, with_member=with_member, before=before, after=after
-        )

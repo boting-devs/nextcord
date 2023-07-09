@@ -57,7 +57,7 @@ from .errors import ClientException, InvalidArgument, InvalidData
 from .flags import SystemChannelFlags
 from .integrations import Integration, _integration_factory
 from .invite import Invite
-from .iterators import AuditLogIterator, BanIterator, MemberIterator, ScheduledEventIterator
+from .iterators import AuditLogIterator, BanIterator, MemberIterator
 from .member import Member, VoiceState
 from .mixins import Hashable
 from .partial_emoji import PartialEmoji
@@ -253,50 +253,18 @@ class Guild(Hashable):
     """
 
     __slots__ = (
-        "afk_timeout",
-        "afk_channel",
         "name",
         "id",
         "unavailable",
-        "region",
         "owner_id",
-        "mfa_level",
-        "emojis",
-        "stickers",
-        "features",
-        "verification_level",
-        "explicit_content_filter",
-        "default_notifications",
-        "description",
-        "max_presences",
-        "max_members",
-        "max_video_channel_users",
-        "premium_tier",
-        "premium_subscription_count",
-        "preferred_locale",
-        "nsfw_level",
         "_application_commands",
         "_members",
         "_channels",
-        "_icon",
-        "_banner",
         "_state",
         "_roles",
         "_member_count",
-        "_large",
-        "_splash",
         "_voice_states",
-        "_system_channel_id",
-        "_system_channel_flags",
-        "_discovery_splash",
-        "_rules_channel_id",
-        "_public_updates_channel_id",
-        "_stage_instances",
         "_threads",
-        "_scheduled_events",
-        "approximate_member_count",
-        "approximate_presence_count",
-        "_premium_progress_bar_enabled",
     )
 
     _PREMIUM_GUILD_LIMITS: ClassVar[Dict[Optional[int], _GuildLimit]] = {
@@ -310,7 +278,6 @@ class Guild(Hashable):
     def __init__(self, *, data: GuildPayload, state: ConnectionState) -> None:
         self._channels: Dict[int, GuildChannel] = {}
         self._members: Dict[int, Member] = {}
-        self._scheduled_events: Dict[int, ScheduledEvent] = {}
         self._voice_states: Dict[int, VoiceState] = {}
         self._threads: Dict[int, Thread] = {}
         self._application_commands: Dict[int, BaseApplicationCommand] = {}
@@ -358,17 +325,6 @@ class Guild(Hashable):
         for k in to_remove:
             del self._threads[k]
         return to_remove
-
-    def _add_scheduled_event(self, event: ScheduledEvent) -> None:
-        self._scheduled_events[event.id] = event
-
-    def _remove_scheduled_event(self, event: int) -> None:
-        self._scheduled_events.pop(event, None)
-
-    def _store_scheduled_event(self, payload: ScheduledEventPayload) -> ScheduledEvent:
-        event = ScheduledEvent(guild=self, state=self._state, data=payload)
-        self._scheduled_events[event.id] = event
-        return event
 
     def __str__(self) -> str:
         return self.name or ""
@@ -444,19 +400,6 @@ class Guild(Hashable):
             self._member_count: int = member_count
 
         self.name: str = guild.get("name")
-        self.region: VoiceRegion = try_enum(VoiceRegion, guild.get("region"))
-        self.verification_level: VerificationLevel = try_enum(
-            VerificationLevel, guild.get("verification_level")
-        )
-        self.default_notifications: NotificationLevel = try_enum(
-            NotificationLevel, guild.get("default_message_notifications")
-        )
-        self.explicit_content_filter: ContentFilter = try_enum(
-            ContentFilter, guild.get("explicit_content_filter", 0)
-        )
-        self.afk_timeout: int = guild.get("afk_timeout")
-        self._icon: Optional[str] = guild.get("icon")
-        self._banner: Optional[str] = guild.get("banner")
         self.unavailable: bool = guild.get("unavailable", False)
         self.id: int = int(guild["id"])
         self._roles: Dict[int, Role] = {}
@@ -464,38 +407,6 @@ class Guild(Hashable):
         for r in guild.get("roles", []):
             role = Role(guild=self, data=r, state=state)
             self._roles[role.id] = role
-
-        self.mfa_level: MFALevel = guild.get("mfa_level")
-        self.emojis: Tuple[Emoji, ...] = tuple(
-            map(lambda d: state.store_emoji(self, d), guild.get("emojis", []))
-        )
-        self.stickers: Tuple[GuildSticker, ...] = tuple(
-            map(lambda d: state.store_sticker(self, d), guild.get("stickers", []))
-        )
-        self.features: List[GuildFeature] = guild.get("features", [])
-        self._splash: Optional[str] = guild.get("splash")
-        self._system_channel_id: Optional[int] = utils.get_as_snowflake(guild, "system_channel_id")
-        self.description: Optional[str] = guild.get("description")
-        self.max_presences: Optional[int] = guild.get("max_presences")
-        self.max_members: Optional[int] = guild.get("max_members")
-        self.max_video_channel_users: Optional[int] = guild.get("max_video_channel_users")
-        self.premium_tier: int = guild.get("premium_tier", 0)
-        self.premium_subscription_count: int = guild.get("premium_subscription_count") or 0
-        self._system_channel_flags: int = guild.get("system_channel_flags", 0)
-        self.preferred_locale: Optional[str] = guild.get("preferred_locale")
-        self._discovery_splash: Optional[str] = guild.get("discovery_splash")
-        self._rules_channel_id: Optional[int] = utils.get_as_snowflake(guild, "rules_channel_id")
-        self._public_updates_channel_id: Optional[int] = utils.get_as_snowflake(
-            guild, "public_updates_channel_id"
-        )
-        self.nsfw_level: NSFWLevel = try_enum(NSFWLevel, guild.get("nsfw_level", 0))
-        self.approximate_presence_count = guild.get("approximate_presence_count")
-        self.approximate_member_count = guild.get("approximate_member_count")
-
-        self._stage_instances: Dict[int, StageInstance] = {}
-        for s in guild.get("stage_instances", []):
-            stage_instance = StageInstance(guild=self, data=s, state=state)
-            self._stage_instances[stage_instance.id] = stage_instance
 
         cache_joined = self._state.member_cache_flags.joined
         self_id = self._state.self_id
@@ -505,28 +416,14 @@ class Guild(Hashable):
                 self._add_member(member)
 
         self._sync(guild)
-        self._large: Optional[bool] = None if member_count is None else self._member_count >= 250
 
         self.owner_id: Optional[int] = utils.get_as_snowflake(guild, "owner_id")
-        self.afk_channel: Optional[VocalGuildChannel] = self.get_channel(utils.get_as_snowflake(guild, "afk_channel_id"))  # type: ignore
 
         for obj in guild.get("voice_states", []):
             self._update_voice_state(obj, int(obj["channel_id"]))
 
-        for event in guild.get("guild_scheduled_events") or []:
-            self._store_scheduled_event(event)
-
-        self._premium_progress_bar_enabled: Optional[bool] = guild.get(
-            "premium_progress_bar_enabled"
-        )
-
     # TODO: refactor/remove?
     def _sync(self, data: GuildPayload) -> None:
-        try:
-            self._large = data["large"]
-        except KeyError:
-            pass
-
         empty_tuple = tuple()
         for presence in data.get("presences", []):
             user_id = int(presence["user"]["id"])
@@ -558,28 +455,6 @@ class Guild(Hashable):
         .. versionadded:: 2.0
         """
         return list(self._threads.values())
-
-    @property
-    def large(self) -> bool:
-        """:class:`bool`: Indicates if the guild is a 'large' guild.
-
-        A large guild is defined as having more than ``large_threshold`` count
-        members, which for this library is set to the maximum of 250.
-        """
-        if self._large is None:
-            try:
-                return self._member_count >= 250
-            except AttributeError:
-                return len(self._members) >= 250
-        return self._large
-
-    @property
-    def invites_disabled(self) -> bool:
-        """:class:`bool`: Indicates if the guild's invites are paused.
-
-        .. versionadded:: 2.4
-        """
-        return "INVITES_DISABLED" in self.features
 
     @property
     def voice_channels(self) -> List[VoiceChannel]:
@@ -646,22 +521,6 @@ class Guild(Hashable):
         r = [ch for ch in self._channels.values() if isinstance(ch, ForumChannel)]
         r.sort(key=lambda c: (c.position, c.id))
         return r
-
-    @property
-    def scheduled_events(self) -> List[ScheduledEvent]:
-        """List[:class:`ScheduledEvent`]: A list of scheduled events in this guild.
-
-        .. versionadded:: 2.0
-        """
-        return list(self._scheduled_events.values())
-
-    @property
-    def premium_progress_bar_enabled(self) -> Optional[bool]:
-        """Optional[:class:`bool`:] Whether the premium boost progress bar is enabled.
-
-        .. versionadded:: 2.6
-        """
-        return self._premium_progress_bar_enabled
 
     def by_category(self) -> List[ByCategoryItem]:
         """Returns every :class:`CategoryChannel` and their associated channels.
@@ -756,73 +615,6 @@ class Guild(Hashable):
             The returned thread or ``None`` if not found.
         """
         return self._threads.get(thread_id)
-
-    @property
-    def system_channel(self) -> Optional[TextChannel]:
-        """Optional[:class:`TextChannel`]: Returns the guild's channel used for system messages.
-
-        If no channel is set, then this returns ``None``.
-        """
-        channel_id = self._system_channel_id
-        return channel_id and self._channels.get(channel_id)  # type: ignore
-
-    @property
-    def system_channel_flags(self) -> SystemChannelFlags:
-        """:class:`SystemChannelFlags`: Returns the guild's system channel settings."""
-        return SystemChannelFlags._from_value(self._system_channel_flags)
-
-    @property
-    def rules_channel(self) -> Optional[TextChannel]:
-        """Optional[:class:`TextChannel`]: Return's the guild's channel used for the rules.
-        The guild must be a Community guild.
-
-        If no channel is set, then this returns ``None``.
-
-        .. versionadded:: 1.3
-        """
-        channel_id = self._rules_channel_id
-        return channel_id and self._channels.get(channel_id)  # type: ignore
-
-    @property
-    def public_updates_channel(self) -> Optional[TextChannel]:
-        """Optional[:class:`TextChannel`]: Return's the guild's channel where admins and
-        moderators of the guilds receive notices from Discord. The guild must be a
-        Community guild.
-
-        If no channel is set, then this returns ``None``.
-
-        .. versionadded:: 1.4
-        """
-        channel_id = self._public_updates_channel_id
-        return channel_id and self._channels.get(channel_id)  # type: ignore
-
-    @property
-    def emoji_limit(self) -> int:
-        """:class:`int`: The maximum number of emoji slots this guild has."""
-        more_emoji = 200 if "MORE_EMOJI" in self.features else 50
-        return max(more_emoji, self._PREMIUM_GUILD_LIMITS[self.premium_tier].emoji)
-
-    @property
-    def sticker_limit(self) -> int:
-        """:class:`int`: The maximum number of sticker slots this guild has.
-
-        .. versionadded:: 2.0
-        """
-        more_stickers = 60 if "MORE_STICKERS" in self.features else 5
-        return max(more_stickers, self._PREMIUM_GUILD_LIMITS[self.premium_tier].stickers)
-
-    @property
-    def bitrate_limit(self) -> float:
-        """:class:`float`: The maximum bitrate for voice channels this guild can have."""
-        vip_guild = (
-            self._PREMIUM_GUILD_LIMITS[1].bitrate if "VIP_REGIONS" in self.features else 96e3
-        )
-        return max(vip_guild, self._PREMIUM_GUILD_LIMITS[self.premium_tier].bitrate)
-
-    @property
-    def filesize_limit(self) -> int:
-        """:class:`int`: The maximum number of bytes files can have when uploaded to this guild."""
-        return self._PREMIUM_GUILD_LIMITS[self.premium_tier].filesize
 
     @property
     def members(self) -> List[Member]:
@@ -928,65 +720,9 @@ class Guild(Hashable):
         return None
 
     @property
-    def stage_instances(self) -> List[StageInstance]:
-        """List[:class:`StageInstance`]: Returns a :class:`list` of the guild's stage instances that
-        are currently running.
-
-        .. versionadded:: 2.0
-        """
-        return list(self._stage_instances.values())
-
-    def get_stage_instance(self, stage_instance_id: int, /) -> Optional[StageInstance]:
-        """Returns a stage instance with the given ID.
-
-        .. versionadded:: 2.0
-
-        Parameters
-        ----------
-        stage_instance_id: :class:`int`
-            The ID to search for.
-
-        Returns
-        -------
-        Optional[:class:`StageInstance`]
-            The stage instance or ``None`` if not found.
-        """
-        return self._stage_instances.get(stage_instance_id)
-
-    @property
     def owner(self) -> Optional[Member]:
         """Optional[:class:`Member`]: The member that owns the guild."""
         return self.get_member(self.owner_id)  # type: ignore
-
-    @property
-    def icon(self) -> Optional[Asset]:
-        """Optional[:class:`Asset`]: Returns the guild's icon asset, if available."""
-        if self._icon is None:
-            return None
-        return Asset._from_guild_icon(self._state, self.id, self._icon)
-
-    @property
-    def banner(self) -> Optional[Asset]:
-        """Optional[:class:`Asset`]: Returns the guild's banner asset, if available."""
-        if self._banner is None:
-            return None
-        return Asset._from_guild_image(self._state, self.id, self._banner, path="banners")
-
-    @property
-    def splash(self) -> Optional[Asset]:
-        """Optional[:class:`Asset`]: Returns the guild's invite splash asset, if available."""
-        if self._splash is None:
-            return None
-        return Asset._from_guild_image(self._state, self.id, self._splash, path="splashes")
-
-    @property
-    def discovery_splash(self) -> Optional[Asset]:
-        """Optional[:class:`Asset`]: Returns the guild's discovery splash asset, if available."""
-        if self._discovery_splash is None:
-            return None
-        return Asset._from_guild_image(
-            self._state, self.id, self._discovery_splash, path="discovery-splashes"
-        )
 
     @property
     def member_count(self) -> Optional[int]:
@@ -1610,7 +1346,6 @@ class Guild(Hashable):
         banner: Optional[Union[bytes, Asset, Attachment, File]] = MISSING,
         splash: Optional[Union[bytes, Asset, Attachment, File]] = MISSING,
         discovery_splash: Optional[Union[bytes, Asset, Attachment, File]] = MISSING,
-        community: bool = MISSING,
         region: Optional[Union[str, VoiceRegion]] = MISSING,
         afk_channel: Optional[VoiceChannel] = MISSING,
         owner: Snowflake = MISSING,
@@ -1624,7 +1359,6 @@ class Guild(Hashable):
         preferred_locale: str = MISSING,
         rules_channel: Optional[TextChannel] = MISSING,
         public_updates_channel: Optional[TextChannel] = MISSING,
-        invites_disabled: bool = MISSING,
         premium_progress_bar_enabled: bool = MISSING,
     ) -> Guild:
         r"""|coro|
@@ -1829,29 +1563,6 @@ class Guild(Hashable):
 
         if premium_progress_bar_enabled is not MISSING:
             fields["premium_progress_bar_enabled"] = premium_progress_bar_enabled
-
-        if community is not MISSING:
-            features = []
-            if community:
-                if "rules_channel_id" in fields and "public_updates_channel_id" in fields:
-                    features.append("COMMUNITY")
-                else:
-                    raise InvalidArgument(
-                        "community field requires both rules_channel and public_updates_channel fields to be provided"
-                    )
-
-            fields["features"] = features
-
-        if invites_disabled is not MISSING:
-            features = self.features.copy()
-
-            if invites_disabled:
-                features.append("INVITES_DISABLED")
-            else:
-                if "INVITES_DISABLED" in features:
-                    features.remove("INVITES_DISABLED")
-
-            fields["features"] = features
 
         data = await http.edit_guild(self.id, reason=reason, **fields)
         return Guild(data=data, state=self._state)
@@ -3363,170 +3074,6 @@ class Guild(Hashable):
         ws = self._state._get_websocket(self.id)
         channel_id = channel.id if channel else None
         await ws.voice_state(self.id, channel_id, self_mute, self_deaf)
-
-    def fetch_scheduled_events(self, *, with_users: bool = False) -> ScheduledEventIterator:
-        """Retrieves an :class:`.AsyncIterator` that enables receiving scheduled
-        events on this guild
-
-        .. note::
-
-            This method is an API call. For general usage, consider
-            :attr:`scheduled_events` instead.
-
-        .. versionadded:: 2.0
-
-        Parameters
-        ----------
-        with_users: Optional[:class:`bool`]
-            If the event should be received with :attr:`ScheduledEvent.users`
-            This defaults to ``False`` - the events' :attr:`~ScheduledEvent.users`
-            will be empty.
-
-        Raises
-        ------
-        HTTPException
-            Getting the events failed.
-
-        Yields
-        ------
-        :class:`.ScheduledEvent`
-            The event with users if applicable
-
-        Examples
-        --------
-
-        Usage ::
-
-            async for event in guild.fetch_scheduled_events():
-                print(event.name)
-
-        Flattening into a list ::
-
-            events = await guild.fetch_scheduled_events().flatten()
-            # events is now a list of ScheduledEvent...
-        """
-        return ScheduledEventIterator(self, with_users=with_users)
-
-    def get_scheduled_event(self, event_id: int) -> Optional[ScheduledEvent]:
-        """Get a scheduled event from cache by id.
-
-        .. note::
-
-            This may not return the updated users, use
-            :meth:`~Guild.fetch_scheduled_event` if that is desired.
-
-        Parameters
-        ----------
-        event_id : int
-            The scheduled event id to fetch.
-
-        Returns
-        -------
-        Optional[ScheduledEvent]
-            The event object, if found.
-        """
-        return self._scheduled_events.get(event_id)
-
-    async def fetch_scheduled_event(
-        self, event_id: int, *, with_users: bool = False
-    ) -> ScheduledEvent:
-        """|coro|
-
-        Fetch a scheduled event object.
-
-        .. note::
-
-            This is an api call, if updated users is not needed,
-            consisder :meth:`~Guild.get_scheduled_event`
-
-        Parameters
-        ----------
-        event_id: :class:`int`
-            The event id to fetch
-        with_users: :class:`bool`
-            If the users should be received and cached too, by default False
-
-        Returns
-        -------
-        :class:`ScheduledEvent`
-            The received event object
-        """
-        event_payload = await self._state.http.get_event(
-            self.id, event_id, with_user_count=with_users
-        )
-
-        return self._store_scheduled_event(event_payload)
-
-    async def create_scheduled_event(
-        self,
-        *,
-        name: str,
-        entity_type: ScheduledEventEntityType,
-        start_time: datetime.datetime,
-        channel: abc.GuildChannel = MISSING,
-        metadata: EntityMetadata = MISSING,
-        privacy_level: ScheduledEventPrivacyLevel = ScheduledEventPrivacyLevel.guild_only,
-        end_time: datetime.datetime = MISSING,
-        description: str = MISSING,
-        image: Optional[Union[bytes, Asset, Attachment, File]] = None,
-        reason: Optional[str] = None,
-    ) -> ScheduledEvent:
-        """|coro|
-
-        Create a new scheduled event object.
-
-        .. versionchanged:: 2.1
-            The ``image`` parameter now accepts :class:`File`, :class:`Attachment`, and :class:`Asset`.
-
-        Parameters
-        ----------
-        channel: :class:`abc.GuildChannel`
-            The channel the event will happen in, if any
-        metadata: :class:`EntityMetadata`
-            The metadata for the event
-        name: :class:`str`
-            The name of the event
-        privacy_level: :class:`ScheduledEventPrivacyLevel`
-            The privacy level for the event
-        start_time: :class:`py:datetime.datetime`
-            The scheduled start time
-        end_time: :class:`py:datetime.datetime`
-            The scheduled end time
-        description: :class:`str`
-            The description for the event
-        entity_type: :class:`ScheduledEventEntityType`
-            The type of event
-        image: Optional[Union[:class:`bytes`, :class:`Asset`, :class:`Attachment`, :class:`File`]]
-            A :term:`py:bytes-like object`, :class:`File`, :class:`Attachment`, or :class:`Asset`
-            representing the cover image.
-        reason: Optional[:class:`str`]
-            The reason for creating this scheduled event. Shows up in the audit logs.
-
-        Returns
-        -------
-        :class:`ScheduledEvent`
-            The created event object.
-        """
-        payload: Dict[str, Any] = {
-            "name": name,
-            "entity_type": entity_type.value,
-            "scheduled_start_time": start_time.isoformat(),
-        }
-        if channel is not MISSING:
-            payload["channel_id"] = channel.id
-        if metadata is not MISSING:
-            payload["entity_metadata"] = metadata.__dict__
-        if privacy_level is not MISSING:
-            payload["privacy_level"] = privacy_level.value
-        if end_time is not MISSING:
-            payload["scheduled_end_time"] = end_time.isoformat()
-        if description is not MISSING:
-            payload["description"] = description
-        if image is not None:
-            payload["image"] = await utils.obj_to_base64_data(image)
-
-        data = await self._state.http.create_event(self.id, reason=reason, **payload)
-        return self._store_scheduled_event(data)
 
     def get_application_commands(self, rollout: bool = False):
         """Gets all application commands registered for this guild.

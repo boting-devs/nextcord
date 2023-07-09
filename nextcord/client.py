@@ -994,28 +994,6 @@ class Client:
         """
         return PartialMessageable(state=self._connection, id=id, type=type)
 
-    def get_stage_instance(self, id: int, /) -> Optional[StageInstance]:
-        """Returns a stage instance with the given stage channel ID.
-
-        .. versionadded:: 2.0
-
-        Parameters
-        ----------
-        id: :class:`int`
-            The ID to search for.
-
-        Returns
-        -------
-        Optional[:class:`.StageInstance`]
-            The returns stage instance of ``None`` if not found.
-        """
-        from .channel import StageChannel
-
-        channel = self._connection.get_channel(id)
-
-        if isinstance(channel, StageChannel):
-            return channel.instance
-
     def get_guild(self, id: int, /) -> Optional[Guild]:
         """Returns a guild with the given ID.
 
@@ -1077,23 +1055,6 @@ class Client:
             The sticker or ``None`` if not found.
         """
         return self._connection.get_sticker(id)
-
-    def get_scheduled_event(self, id: int, /) -> Optional[ScheduledEvent]:
-        """Returns a scheduled event with the given ID.
-
-        .. versionadded:: 2.0
-
-        Parameters
-        ----------
-        id: :class:`int`
-            The scheduled event's ID to search for.
-
-        Returns
-        -------
-        Optional[:class:`.ScheduledEvent`]
-            The scheduled event or ``None`` if not found.
-        """
-        return self._connection.get_scheduled_event(id)
 
     def get_all_channels(self) -> Generator[GuildChannel, None, None]:
         """A generator that retrieves every :class:`.abc.GuildChannel` the client can 'access'.
@@ -2059,14 +2020,6 @@ class Client:
             The views requested.
         """
         return self._connection.views(persistent)
-
-    @property
-    def scheduled_events(self) -> List[ScheduledEvent]:
-        """List[ScheduledEvent]: A list of scheduled events
-
-        .. versionadded:: 2.0
-        """
-        return [event for guild in self.guilds for event in guild.scheduled_events]
 
     async def on_interaction(self, interaction: Interaction) -> None:
         await self.process_application_commands(interaction)

@@ -619,9 +619,6 @@ class AuditLogEntry(Hashable):
     def _convert_target_message(self, target_id: int) -> Union[Member, User, None]:
         return self._get_member(target_id)
 
-    def _convert_target_stage_instance(self, target_id: int) -> Union[StageInstance, Object]:
-        return self.guild.get_stage_instance(target_id) or Object(id=target_id)
-
     def _convert_target_sticker(self, target_id: int) -> Union[GuildSticker, Object]:
         return self._state.get_sticker(target_id) or Object(id=target_id)
 
