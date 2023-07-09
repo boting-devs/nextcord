@@ -115,34 +115,18 @@ class Thread(Messageable, Hashable, PinsMixin):
     """
 
     __slots__ = (
-        "name",
         "id",
         "guild",
         "_type",
         "_state",
-        "_members",
-        "owner_id",
         "parent_id",
-        "last_message_id",
-        "message_count",
-        "member_count",
-        "slowmode_delay",
-        "me",
         "locked",
         "archived",
-        "invitable",
-        "archiver_id",
-        "auto_archive_duration",
-        "archive_timestamp",
-        "create_timestamp",
-        "flags",
-        "applied_tag_ids",
     )
 
     def __init__(self, *, guild: Guild, state: ConnectionState, data: ThreadPayload) -> None:
         self._state: ConnectionState = state
         self.guild = guild
-        self._members: Dict[int, ThreadMember] = {}
         self._from_data(data)
 
     async def _get_channel(self):
@@ -150,66 +134,13 @@ class Thread(Messageable, Hashable, PinsMixin):
 
     def __repr__(self) -> str:
         return (
-            f"<Thread id={self.id!r} name={self.name!r} parent={self.parent}"
-            f" owner_id={self.owner_id!r} locked={self.locked} archived={self.archived}>"
+            f"<Thread id={self.id!r} parent={self.parent}>"
         )
-
-    def __str__(self) -> str:
-        return self.name
 
     def _from_data(self, data: ThreadPayload) -> None:
         self.id = int(data["id"])
         self.parent_id = int(data["parent_id"])
-        self.owner_id = int(data["owner_id"])
-        self.name = data["name"]
         self._type = try_enum(ChannelType, data["type"])
-        self.last_message_id = get_as_snowflake(data, "last_message_id")
-        self.slowmode_delay = data.get("rate_limit_per_user", 0)
-        self.message_count = data["message_count"]
-        self.member_count = data["member_count"]
-        self._unroll_metadata(data["thread_metadata"])
-        self.flags: ChannelFlags = ChannelFlags._from_value(data.get("flags", 0))
-
-        try:
-            member = data["member"]
-        except KeyError:
-            self.me = None
-        else:
-            self.me = ThreadMember(self, member)
-
-        self.applied_tag_ids: List[int] = [int(tag_id) for tag_id in data.get("applied_tags", [])]
-
-    def _unroll_metadata(self, data: ThreadMetadata) -> None:
-        self.archived = data["archived"]
-        self.archiver_id = get_as_snowflake(data, "archiver_id")
-        self.auto_archive_duration = data["auto_archive_duration"]
-        self.archive_timestamp = parse_time(data["archive_timestamp"])
-        self.locked = data.get("locked", False)
-        self.invitable = data.get("invitable", True)
-        self.create_timestamp = parse_time(data.get("create_timestamp"))
-
-    def _update(self, data) -> None:
-        try:
-            self.name = data["name"]
-        except KeyError:
-            pass
-
-        self.slowmode_delay = data.get("rate_limit_per_user", 0)
-        self.flags: ChannelFlags = ChannelFlags._from_value(data.get("flags", 0))
-
-        try:
-            self._unroll_metadata(data["thread_metadata"])
-        except KeyError:
-            pass
-
-    @property
-    def created_at(self) -> Optional[datetime]:
-        """Optional[:class:`datetime.datetime`]: Returns the threads's creation time in UTC.
-        This is ``None`` if the thread was created before January 9th, 2021.
-
-        .. versionadded:: 2.0
-        """
-        return self.create_timestamp
 
     @property
     def type(self) -> ChannelType:
@@ -222,45 +153,9 @@ class Thread(Messageable, Hashable, PinsMixin):
         return self.guild.get_channel(self.parent_id)  # type: ignore
 
     @property
-    def owner(self) -> Optional[Member]:
-        """Optional[:class:`Member`]: The member this thread belongs to."""
-        return self.guild.get_member(self.owner_id)
-
-    @property
     def mention(self) -> str:
         """:class:`str`: The string that allows you to mention the thread."""
         return f"<#{self.id}>"
-
-    @property
-    def members(self) -> List[ThreadMember]:
-        """List[:class:`ThreadMember`]: A list of thread members in this thread.
-
-        This requires :attr:`Intents.members` to be properly filled. Most of the time however,
-        this data is not provided by the gateway and a call to :meth:`fetch_members` is
-        needed.
-        """
-        return list(self._members.values())
-
-    @property
-    def last_message(self) -> Optional[Message]:
-        """Fetches the last message from this channel in cache.
-
-        The message might not be valid or point to an existing message.
-
-        .. admonition:: Reliable Fetching
-            :class: helpful
-
-            For a slightly more reliable method of fetching the
-            last message, consider using either :meth:`history`
-            or :meth:`fetch_message` with the :attr:`last_message_id`
-            attribute.
-
-        Returns
-        -------
-        Optional[:class:`Message`]
-            The last message in this channel or ``None`` if not found.
-        """
-        return self._state._get_message(self.last_message_id) if self.last_message_id else None
 
     @property
     def category(self) -> Optional[CategoryChannel]:
@@ -746,12 +641,6 @@ class Thread(Messageable, Hashable, PinsMixin):
         from .message import PartialMessage
 
         return PartialMessage(channel=self, id=message_id)
-
-    def _add_member(self, member: ThreadMember) -> None:
-        self._members[member.id] = member
-
-    def _pop_member(self, member_id: int) -> Optional[ThreadMember]:
-        return self._members.pop(member_id, None)
 
 
 class ThreadMember(Hashable):

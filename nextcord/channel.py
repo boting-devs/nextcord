@@ -2559,16 +2559,13 @@ class GroupChannel(abc.Messageable, abc.PrivateChannel, Hashable, PinsMixin):
         return self
 
     def __str__(self) -> str:
-        if self.name:
-            return self.name
-
         if len(self.recipients) == 0:
             return "Unnamed"
 
         return ", ".join(map(lambda x: x.name, self.recipients))
 
     def __repr__(self) -> str:
-        return f"<GroupChannel id={self.id} name={self.name!r}>"
+        return f"<GroupChannel id={self.id}>"
 
     @property
     def type(self) -> ChannelType:

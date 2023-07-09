@@ -1623,11 +1623,6 @@ class Guild(Hashable):
         """
         data = await self._state.http.get_active_threads(self.id)
         threads = [Thread(guild=self, state=self._state, data=d) for d in data.get("threads", [])]
-        thread_lookup: Dict[int, Thread] = {thread.id: thread for thread in threads}
-        for member in data.get("members", []):
-            thread = thread_lookup.get(int(member["id"]))
-            if thread is not None:
-                thread._add_member(ThreadMember(parent=thread, data=member))
 
         return threads
 
