@@ -48,7 +48,6 @@ __all__ = (
     "dm_only",
     "guild_only",
     "is_owner",
-    "is_nsfw",
     "application_command_before_invoke",
     "application_command_after_invoke",
 )
@@ -656,34 +655,6 @@ def is_owner() -> AC:
         return True
 
     return check(predicate)
-
-
-def is_nsfw() -> AC:
-    """A :func:`.check` that checks if the channel is a NSFW channel.
-
-    This check raises a special exception, :exc:`.ApplicationNSFWChannelRequired`
-    that is derived from :exc:`.ApplicationCheckFailure`.
-
-    Example
-    -------
-
-    .. code-block:: python3
-
-        @bot.slash_command()
-        @application_checks.is_nsfw()
-        async def ownercmd(interaction: Interaction):
-            await interaction.response.send_message('Only NSFW channels!')
-    """
-
-    def pred(interaction: Interaction) -> bool:
-        ch = interaction.channel
-        if interaction.guild is None or (
-            isinstance(ch, (nextcord.TextChannel, nextcord.Thread)) and ch.is_nsfw()
-        ):
-            return True
-        raise ApplicationNSFWChannelRequired(ch)
-
-    return check(pred)
 
 
 def application_command_before_invoke(coro) -> AC:

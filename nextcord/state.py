@@ -1508,9 +1508,6 @@ class ConnectionState:
             # `newly_created` is documented outside of a thread's fields:
             # https://discord.dev/topics/gateway-events#thread-create
             if data.get("newly_created", False):
-                if isinstance(thread.parent, ForumChannel):
-                    thread.parent.last_message_id = thread.id
-
                 self.dispatch("thread_create", thread)
 
             # Avoid an unnecessary breaking change right now by dispatching `thread_join` for

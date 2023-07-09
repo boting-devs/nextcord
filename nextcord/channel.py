@@ -157,21 +157,13 @@ class TextChannel(abc.Messageable, abc.GuildChannel, Hashable, PinsMixin):
     """
 
     __slots__ = (
-        "name",
         "id",
         "guild",
-        "topic",
         "_state",
-        "nsfw",
         "category_id",
         "position",
-        "slowmode_delay",
         "_overwrites",
         "_type",
-        "last_message_id",
-        "default_auto_archive_duration",
-        "flags",
-        "default_thread_slowmode_delay",
     )
 
     def __init__(self, *, state: ConnectionState, guild: Guild, data: TextChannelPayload) -> None:
@@ -183,9 +175,7 @@ class TextChannel(abc.Messageable, abc.GuildChannel, Hashable, PinsMixin):
     def __repr__(self) -> str:
         attrs = [
             ("id", self.id),
-            ("name", self.name),
             ("position", self.position),
-            ("nsfw", self.nsfw),
             ("news", self.is_news()),
             ("category_id", self.category_id),
         ]
@@ -194,20 +184,10 @@ class TextChannel(abc.Messageable, abc.GuildChannel, Hashable, PinsMixin):
 
     def _update(self, guild: Guild, data: TextChannelPayload) -> None:
         self.guild: Guild = guild
-        self.name: str = data["name"]
         self.category_id: Optional[int] = utils.get_as_snowflake(data, "parent_id")
-        self.topic: Optional[str] = data.get("topic")
         self.position: int = data["position"]
-        self.nsfw: bool = data.get("nsfw", False)
         # Does this need coercion into `int`? No idea yet.
-        self.slowmode_delay: int = data.get("rate_limit_per_user", 0)
-        self.default_auto_archive_duration: ThreadArchiveDuration = data.get(
-            "default_auto_archive_duration", 1440
-        )
-        self.flags: ChannelFlags = ChannelFlags._from_value(data.get("flags", 0))
         self._type: int = data.get("type", self._type)
-        self.last_message_id: Optional[int] = utils.get_as_snowflake(data, "last_message_id")
-        self.default_thread_slowmode_delay: int = data.get("default_thread_slowmode_delay", 0)
         self._fill_overwrites(data)
 
     async def _get_channel(self):
@@ -244,34 +224,9 @@ class TextChannel(abc.Messageable, abc.GuildChannel, Hashable, PinsMixin):
         """
         return [thread for thread in self.guild._threads.values() if thread.parent_id == self.id]
 
-    def is_nsfw(self) -> bool:
-        """:class:`bool`: Checks if the channel is NSFW."""
-        return self.nsfw
-
     def is_news(self) -> bool:
         """:class:`bool`: Checks if the channel is a news channel."""
         return self._type == ChannelType.news.value
-
-    @property
-    def last_message(self) -> Optional[Message]:
-        """Fetches the last message from this channel in cache.
-
-        The message might not be valid or point to an existing message.
-
-        .. admonition:: Reliable Fetching
-            :class: helpful
-
-            For a slightly more reliable method of fetching the
-            last message, consider using either :meth:`history`
-            or :meth:`fetch_message` with the :attr:`last_message_id`
-            attribute.
-
-        Returns
-        -------
-        Optional[:class:`Message`]
-            The last message in this channel or ``None`` if not found.
-        """
-        return self._state._get_message(self.last_message_id) if self.last_message_id else None
 
     @overload
     async def edit(
@@ -378,9 +333,9 @@ class TextChannel(abc.Messageable, abc.GuildChannel, Hashable, PinsMixin):
         self, *, name: Optional[str] = None, reason: Optional[str] = None
     ) -> TextChannel:
         return await self._clone_impl(
-            {"topic": self.topic, "nsfw": self.nsfw, "rate_limit_per_user": self.slowmode_delay},
+            {},
             name=name,
-            reason=reason,
+            reason=reason
         )
 
     async def delete_messages(self, messages: Iterable[Snowflake]) -> None:
@@ -500,7 +455,8 @@ class TextChannel(abc.Messageable, abc.GuildChannel, Hashable, PinsMixin):
         """
 
         if check is MISSING:
-            check = lambda m: True
+            def check(m):
+                return True
 
         iterator = self.history(
             limit=limit, before=before, after=after, oldest_first=oldest_first, around=around
@@ -769,7 +725,7 @@ class TextChannel(abc.Messageable, abc.GuildChannel, Hashable, PinsMixin):
             data = await self._state.http.start_thread_without_message(
                 self.id,
                 name=name,
-                auto_archive_duration=auto_archive_duration or self.default_auto_archive_duration,
+                auto_archive_duration=auto_archive_duration or 10080,
                 type=type.value,
                 invitable=invitable,
                 reason=reason,
@@ -779,7 +735,7 @@ class TextChannel(abc.Messageable, abc.GuildChannel, Hashable, PinsMixin):
                 self.id,
                 message.id,
                 name=name,
-                auto_archive_duration=auto_archive_duration or self.default_auto_archive_duration,
+                auto_archive_duration=auto_archive_duration or 10080,
                 reason=reason,
             )
 
@@ -908,23 +864,11 @@ class ForumChannel(abc.GuildChannel, Hashable):
     __slots__ = (
         "id",
         "guild",
-        "name",
         "category_id",
         "position",
-        "topic",
-        "nsfw",
-        "flags",
-        "slowmode_delay",
-        "default_auto_archive_duration",
-        "last_message_id",
-        "default_sort_order",
-        "default_forum_layout",
         "_state",
         "_type",
         "_overwrites",
-        "default_thread_slowmode_delay",
-        "_available_tags",
-        "default_reaction",
     )
 
     def __init__(self, *, state: ConnectionState, guild: Guild, data: ForumChannelPayload) -> None:
@@ -935,42 +879,8 @@ class ForumChannel(abc.GuildChannel, Hashable):
 
     def _update(self, guild: Guild, data: ForumChannelPayload) -> None:
         self.guild = guild
-        self.name = data["name"]
         self.category_id: Optional[int] = utils.get_as_snowflake(data, "parent_id")
-        self.topic: Optional[str] = data.get("topic")
         self.position: int = data["position"]
-        self.nsfw: bool = data.get("nsfw", False)
-        # Does this need coercion into `int`? No idea yet.
-        self.slowmode_delay: int = data.get("rate_limit_per_user", 0)
-        self.flags: ChannelFlags = ChannelFlags._from_value(data.get("flags", 0))
-        self.default_auto_archive_duration: ThreadArchiveDuration = data.get(
-            "default_auto_archive_duration", 1440
-        )
-
-        self.last_message_id: Optional[int] = utils.get_as_snowflake(data, "last_message_id")
-        self.default_forum_layout: ForumLayoutType = try_enum(
-            ForumLayoutType, data.get("default_forum_layout", 0)
-        )
-
-        if sort_order := data.get("default_sort_order"):
-            self.default_sort_order: Optional[SortOrderType] = try_enum(SortOrderType, sort_order)
-        else:
-            self.default_sort_order: Optional[SortOrderType] = None
-
-        self.default_thread_slowmode_delay: Optional[int] = data.get(
-            "default_thread_slowmode_delay"
-        )
-        self._available_tags: Dict[int, ForumTag] = {
-            int(tag["id"]): ForumTag.from_data(tag) for tag in data.get("available_tags", [])
-        }
-
-        self.default_reaction: Optional[PartialEmoji]
-
-        reaction = data.get("default_reaction_emoji")
-        if reaction is None:
-            self.default_reaction = None
-        else:
-            self.default_reaction = PartialEmoji.from_default_reaction(reaction)
 
         self._fill_overwrites(data)
 
@@ -1004,58 +914,6 @@ class ForumChannel(abc.GuildChannel, Hashable):
     def threads(self) -> List[Thread]:
         """List[:class:`Thread`]: Returns all the threads of this channel."""
         return [thread for thread in self.guild._threads.values() if thread.parent_id == self.id]
-
-    def is_nsfw(self) -> bool:
-        """:class:`bool`: Checks if the channel is NSFW."""
-        return self.nsfw
-
-    @property
-    def last_message(self) -> Optional[Message]:
-        """Fetches the message that started the last thread from this channel in cache.
-
-        The message might not be valid or point to an existing message.
-
-        .. admonition:: Reliable Fetching
-            :class: helpful
-
-            For a slightly more reliable method of fetching the
-            last message, consider using either :meth:`history`
-            or :meth:`fetch_message` with the :attr:`last_message_id`
-            attribute.
-
-        Returns
-        -------
-        Optional[:class:`Message`]
-            The message that started the last thread in this channel or ``None`` if not found.
-        """
-        return self._state._get_message(self.last_message_id) if self.last_message_id else None
-
-    @property
-    def available_tags(self) -> List[ForumTag]:
-        """List[:class:`ForumTag`]: Returns all the tags available in this channel.
-
-        .. versionadded:: 2.4
-        """
-
-        return list(self._available_tags.values())
-
-    def get_tag(self, id: int, /) -> Optional[ForumTag]:
-        """Returns a tag from this channel by its ID.
-
-        .. versionadded:: 2.4
-
-        Parameters
-        ----------
-        id: :class:`int`
-            The ID of the tag to get from cache.
-
-        Returns
-        -------
-        Optional[:class:`ForumTag`]
-            The tag with the given ID or ``None`` if not found.
-        """
-
-        return self._available_tags.get(id)
 
     @overload
     async def edit(
@@ -1340,7 +1198,7 @@ class ForumChannel(abc.GuildChannel, Hashable):
                     self.id,
                     name=name,
                     auto_archive_duration=auto_archive_duration
-                    or self.default_auto_archive_duration,
+                    or 10080,
                     rate_limit_per_user=slowmode_delay,
                     files=files,
                     content=content,
@@ -1360,7 +1218,7 @@ class ForumChannel(abc.GuildChannel, Hashable):
             data = await state.http.start_thread_in_forum_channel(
                 self.id,
                 name=name,
-                auto_archive_duration=auto_archive_duration or self.default_auto_archive_duration,
+                auto_archive_duration=auto_archive_duration or 10080,
                 rate_limit_per_user=slowmode_delay,
                 content=content,
                 embeds=raw_embeds,
@@ -1477,18 +1335,14 @@ class ForumChannel(abc.GuildChannel, Hashable):
 
 class VocalGuildChannel(abc.Connectable, abc.GuildChannel, Hashable):
     __slots__ = (
-        "name",
         "id",
         "guild",
-        "bitrate",
         "user_limit",
         "_state",
         "position",
         "_overwrites",
         "category_id",
         "rtc_region",
-        "video_quality_mode",
-        "flags",
     )
 
     def __init__(
@@ -1510,19 +1364,13 @@ class VocalGuildChannel(abc.Connectable, abc.GuildChannel, Hashable):
 
     def _update(self, guild: Guild, data: Union[VoiceChannelPayload, StageChannelPayload]) -> None:
         self.guild = guild
-        self.name: str = data["name"]
         rtc = data.get("rtc_region")
         self.rtc_region: Optional[VoiceRegion] = (
             try_enum(VoiceRegion, rtc) if rtc is not None else None
         )
-        self.video_quality_mode: VideoQualityMode = try_enum(
-            VideoQualityMode, data.get("video_quality_mode", 1)
-        )
         self.category_id: Optional[int] = utils.get_as_snowflake(data, "parent_id")
         self.position: int = data["position"]
-        self.bitrate: int = data.get("bitrate")
         self.user_limit: int = data.get("user_limit")
-        self.flags: ChannelFlags = ChannelFlags._from_value(data.get("flags", 0))
         self._fill_overwrites(data)
 
     @property
@@ -1643,29 +1491,18 @@ class VoiceChannel(VocalGuildChannel, abc.Messageable):
         ..versionadded:: 2.1
     """
 
-    __slots__ = (
-        "last_message_id",
-        "nsfw",
-    )
+    __slots__ = ()
 
     def __repr__(self) -> str:
         attrs = [
             ("id", self.id),
-            ("name", self.name),
             ("rtc_region", self.rtc_region),
             ("position", self.position),
-            ("bitrate", self.bitrate),
-            ("video_quality_mode", self.video_quality_mode),
             ("user_limit", self.user_limit),
             ("category_id", self.category_id),
         ]
         joined = " ".join("%s=%r" % t for t in attrs)
         return f"<{self.__class__.__name__} {joined}>"
-
-    def _update(self, guild: Guild, data: VoiceChannelPayload) -> None:
-        VocalGuildChannel._update(self, guild, data)
-        self.last_message_id: Optional[int] = utils.get_as_snowflake(data, "last_message_id")
-        self.nsfw: bool = data.get("nsfw", False)
 
     async def _get_channel(self):
         return self
@@ -1675,39 +1512,12 @@ class VoiceChannel(VocalGuildChannel, abc.Messageable):
         """:class:`ChannelType`: The channel's Discord type."""
         return ChannelType.voice
 
-    def is_nsfw(self) -> bool:
-        """:class:`bool`: Checks if the channel is NSFW."""
-        return self.nsfw
-
-    @property
-    def last_message(self) -> Optional[Message]:
-        """Fetches the last message from this channel in cache.
-
-        The message might not be valid or point to an existing message.
-
-        .. admonition:: Reliable Fetching
-            :class: helpful
-
-            For a slightly more reliable method of fetching the
-            last message, consider using either :meth:`history`
-            or :meth:`fetch_message` with the :attr:`last_message_id`
-            attribute.
-
-        .. versionadded:: 2.1
-
-        Returns
-        -------
-        Optional[:class:`Message`]
-            The last message in this channel or ``None`` if not found.
-        """
-        return self._state._get_message(self.last_message_id) if self.last_message_id else None
-
     @utils.copy_doc(abc.GuildChannel.clone)
     async def clone(
         self, *, name: Optional[str] = None, reason: Optional[str] = None
     ) -> VoiceChannel:
         return await self._clone_impl(
-            {"bitrate": self.bitrate, "user_limit": self.user_limit}, name=name, reason=reason
+            {"user_limit": self.user_limit}, name=name, reason=reason
         )
 
     @overload
@@ -1919,7 +1729,8 @@ class VoiceChannel(VocalGuildChannel, abc.Messageable):
         """
 
         if check is MISSING:
-            check = lambda m: True
+            def check(m):
+                return True
 
         iterator = self.history(
             limit=limit, before=before, after=after, oldest_first=oldest_first, around=around
@@ -2069,26 +1880,18 @@ class StageChannel(VocalGuildChannel):
         ..versionadded:: 2.1
     """
 
-    __slots__ = ("topic",)
+    __slots__ = ()
 
     def __repr__(self) -> str:
         attrs = [
             ("id", self.id),
-            ("name", self.name),
-            ("topic", self.topic),
             ("rtc_region", self.rtc_region),
             ("position", self.position),
-            ("bitrate", self.bitrate),
-            ("video_quality_mode", self.video_quality_mode),
             ("user_limit", self.user_limit),
             ("category_id", self.category_id),
         ]
         joined = " ".join("%s=%r" % t for t in attrs)
         return f"<{self.__class__.__name__} {joined}>"
-
-    def _update(self, guild: Guild, data: StageChannelPayload) -> None:
-        super()._update(guild, data)
-        self.topic = data.get("topic")
 
     @property
     def requesting_to_speak(self) -> List[Member]:
@@ -2347,15 +2150,12 @@ class CategoryChannel(abc.GuildChannel, Hashable):
     """
 
     __slots__ = (
-        "name",
         "id",
         "guild",
-        "nsfw",
         "_state",
         "position",
         "_overwrites",
         "category_id",
-        "flags",
     )
 
     def __init__(
@@ -2366,15 +2166,12 @@ class CategoryChannel(abc.GuildChannel, Hashable):
         self._update(guild, data)
 
     def __repr__(self) -> str:
-        return f"<CategoryChannel id={self.id} name={self.name!r} position={self.position} nsfw={self.nsfw}>"
+        return f"<CategoryChannel id={self.id} position={self.position}>"
 
     def _update(self, guild: Guild, data: CategoryChannelPayload) -> None:
         self.guild: Guild = guild
-        self.name: str = data["name"]
         self.category_id: Optional[int] = utils.get_as_snowflake(data, "parent_id")
-        self.nsfw: bool = data.get("nsfw", False)
         self.position: int = data["position"]
-        self.flags: ChannelFlags = ChannelFlags._from_value(data.get("flags", 0))
         self._fill_overwrites(data)
 
     @property
@@ -2386,15 +2183,11 @@ class CategoryChannel(abc.GuildChannel, Hashable):
         """:class:`ChannelType`: The channel's Discord type."""
         return ChannelType.category
 
-    def is_nsfw(self) -> bool:
-        """:class:`bool`: Checks if the category is NSFW."""
-        return self.nsfw
-
     @utils.copy_doc(abc.GuildChannel.clone)
     async def clone(
         self, *, name: Optional[str] = None, reason: Optional[str] = None
     ) -> CategoryChannel:
-        return await self._clone_impl({"nsfw": self.nsfw}, name=name, reason=reason)
+        return await self._clone_impl({}, name=name, reason=reason)
 
     @overload
     async def edit(
@@ -2739,7 +2532,7 @@ class GroupChannel(abc.Messageable, abc.PrivateChannel, Hashable, PinsMixin):
         The group channel's name if provided.
     """
 
-    __slots__ = ("id", "recipients", "owner_id", "owner", "_icon", "name", "me", "_state")
+    __slots__ = ("id", "recipients", "owner_id", "owner", "_icon", "me", "_state")
 
     def __init__(
         self, *, me: ClientUser, state: ConnectionState, data: GroupChannelPayload
@@ -2752,7 +2545,6 @@ class GroupChannel(abc.Messageable, abc.PrivateChannel, Hashable, PinsMixin):
     def _update_group(self, data: GroupChannelPayload) -> None:
         self.owner_id: Optional[int] = utils.get_as_snowflake(data, "owner_id")
         self._icon: Optional[str] = data.get("icon")
-        self.name: Optional[str] = data.get("name")
         self.recipients: List[User] = [
             self._state.store_user(u) for u in data.get("recipients", [])
         ]

@@ -310,32 +310,6 @@ class Thread(Messageable, Hashable, PinsMixin):
         """
         return f"https://discord.com/channels/{self.guild.id}/{self.id}"
 
-    @property
-    def applied_tags(self) -> Optional[List[ForumTag]]:
-        """Optional[List[:class:`ForumTag`]]: A list of tags applied to this thread.
-
-        This is ``None`` if the parent channel was not found in cache.
-
-        .. versionadded:: 2.4
-        """
-
-        if self.parent is None:
-            return None
-
-        parent = self.parent
-
-        if not isinstance(parent, channel.ForumChannel):
-            return None
-
-        tags: List[ForumTag] = []
-
-        for tag_id in self.applied_tag_ids:
-            tag = parent.get_tag(tag_id)
-            if tag is not None:
-                tags.append(tag)
-
-        return tags
-
     def is_private(self) -> bool:
         """:class:`bool`: Whether the thread is a private thread.
 
@@ -351,15 +325,6 @@ class Thread(Messageable, Hashable, PinsMixin):
         i.e. :meth:`.TextChannel.is_news` is ``True``.
         """
         return self._type is ChannelType.news_thread
-
-    def is_nsfw(self) -> bool:
-        """:class:`bool`: Whether the thread is NSFW or not.
-
-        An NSFW thread is a thread that has a parent that is an NSFW channel,
-        i.e. :meth:`.TextChannel.is_nsfw` is ``True``.
-        """
-        parent = self.parent
-        return parent is not None and parent.is_nsfw()
 
     def permissions_for(self, obj: Union[Member, Role], /) -> Permissions:
         """Handles permission resolution for the :class:`~nextcord.Member`

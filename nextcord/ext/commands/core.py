@@ -62,7 +62,6 @@ __all__ = (
     "dm_only",
     "guild_only",
     "is_owner",
-    "is_nsfw",
     "has_guild_permissions",
     "bot_has_guild_permissions",
 )
@@ -2223,29 +2222,6 @@ def is_owner() -> Callable[[T], T]:
         return True
 
     return check(predicate)
-
-
-def is_nsfw() -> Callable[[T], T]:
-    """A :func:`.check` that checks if the channel is a NSFW channel.
-
-    This check raises a special exception, :exc:`.NSFWChannelRequired`
-    that is derived from :exc:`.CheckFailure`.
-
-    .. versionchanged:: 1.1
-
-        Raise :exc:`.NSFWChannelRequired` instead of generic :exc:`.CheckFailure`.
-        DM channels will also now pass this check.
-    """
-
-    def pred(ctx: Context) -> bool:
-        ch = ctx.channel
-        if ctx.guild is None or (
-            isinstance(ch, (nextcord.TextChannel, nextcord.Thread)) and ch.is_nsfw()
-        ):
-            return True
-        raise NSFWChannelRequired(ch)  # type: ignore
-
-    return check(pred)
 
 
 def cooldown(
