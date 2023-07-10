@@ -1063,59 +1063,6 @@ class Message(Hashable):
         it = filter(None, map(self.guild.get_channel, self.raw_channel_mentions))
         return utils.unique(it)
 
-    @utils.cached_slot_property("_cs_clean_content")
-    def clean_content(self) -> str:
-        """:class:`str`: A property that returns the content in a "cleaned up"
-        manner. This basically means that mentions are transformed
-        into the way the client shows it. e.g. ``<#id>`` will transform
-        into ``#name``.
-
-        This will also transform @everyone and @here mentions into
-        non-mentions.
-
-        .. note::
-
-            This *does not* affect markdown. If you want to escape
-            or remove markdown then use :func:`utils.escape_markdown` or :func:`utils.remove_markdown`
-            respectively, along with this function.
-        """
-
-        # fmt: off
-        transformations = {
-            re.escape(f'<#{channel.id}>'): '#' + channel.name
-            for channel in self.channel_mentions
-        }
-
-        mention_transforms = {
-            re.escape(f'<@{member.id}>'): '@' + member.display_name
-            for member in self.mentions
-        }
-
-        # add the <@!user_id> cases as well..
-        second_mention_transforms = {
-            re.escape(f'<@!{member.id}>'): '@' + member.display_name
-            for member in self.mentions
-        }
-
-        transformations.update(mention_transforms)
-        transformations.update(second_mention_transforms)
-
-        if self.guild is not None:
-            role_transforms = {
-                re.escape(f'<@&{role.id}>'): '@' + role.name
-                for role in self.role_mentions
-            }
-            transformations.update(role_transforms)
-
-        # fmt: on
-
-        def repl(obj):
-            return transformations.get(re.escape(obj.group(0)), "")
-
-        pattern = re.compile("|".join(transformations.keys()))
-        result = pattern.sub(repl, self.content)
-        return escape_mentions(result)
-
     @property
     def created_at(self) -> datetime.datetime:
         """:class:`datetime.datetime`: The message's creation time in UTC."""

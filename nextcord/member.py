@@ -438,35 +438,6 @@ class Member(abc.Messageable, _UserTag):
         return "mobile" in self._client_status
 
     @property
-    def colour(self) -> Colour:
-        """:class:`Colour`: A property that returns a colour denoting the rendered colour
-        for the member. If the default colour is the one rendered then an instance
-        of :meth:`Colour.default` is returned.
-
-        There is an alias for this named :attr:`color`.
-        """
-
-        roles = self.roles[1:]  # remove @everyone
-
-        # highest order of the colour is the one that gets rendered.
-        # if the highest is the default colour then the next one with a colour
-        # is chosen instead
-        for role in reversed(roles):
-            if role.colour.value:
-                return role.colour
-        return Colour.default()
-
-    @property
-    def color(self) -> Colour:
-        """:class:`Colour`: A property that returns a color denoting the rendered color for
-        the member. If the default color is the one rendered then an instance of :meth:`Colour.default`
-        is returned.
-
-        There is an alias for this named :attr:`colour`.
-        """
-        return self.colour
-
-    @property
     def roles(self) -> List[Role]:
         """List[:class:`Role`]: A :class:`list` of :class:`Role` that the member belongs to. Note
         that the first element of this list is always the default '@everyone'

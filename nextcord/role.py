@@ -182,16 +182,9 @@ class Role(Hashable):
 
     __slots__ = (
         "id",
-        "name",
         "_permissions",
-        "_colour",
         "position",
-        "managed",
-        "mentionable",
-        "hoist",
         "guild",
-        "tags",
-        "_icon",
         "_state",
     )
 
@@ -201,11 +194,8 @@ class Role(Hashable):
         self.id: int = int(data["id"])
         self._update(data)
 
-    def __str__(self) -> str:
-        return self.name
-
     def __repr__(self) -> str:
-        return f"<Role id={self.id} name={self.name!r}>"
+        return f"<Role id={self.id}>"
 
     def __lt__(self, other: Self) -> bool:
         if not isinstance(other, Role) or not isinstance(self, Role):
@@ -244,74 +234,17 @@ class Role(Hashable):
         return not r
 
     def _update(self, data: RolePayload) -> None:
-        self.name: str = data["name"]
         self._permissions: int = int(data.get("permissions", 0))
         self.position: int = data.get("position", 0)
-        self._colour: int = data.get("color", 0)
-        self.hoist: bool = data.get("hoist", False)
-        self.managed: bool = data.get("managed", False)
-        self.mentionable: bool = data.get("mentionable", False)
-        self._icon: Optional[str] = data.get("icon", None)
-        if self._icon is None:
-            self._icon: Optional[str] = data.get("unicode_emoji", None)
-        self.tags: Optional[RoleTags]
-
-        try:
-            self.tags = RoleTags(data["tags"])
-        except KeyError:
-            self.tags = None
 
     def is_default(self) -> bool:
         """:class:`bool`: Checks if the role is the default role."""
         return self.guild.id == self.id
 
-    def is_bot_managed(self) -> bool:
-        """:class:`bool`: Whether the role is associated with a bot.
-
-        .. versionadded:: 1.6
-        """
-        return self.tags is not None and self.tags.is_bot_managed()
-
-    def is_premium_subscriber(self) -> bool:
-        """:class:`bool`: Whether the role is the premium subscriber, AKA "boost", role for the guild.
-
-        .. versionadded:: 1.6
-        """
-        return self.tags is not None and self.tags.is_premium_subscriber()
-
-    def is_integration(self) -> bool:
-        """:class:`bool`: Whether the role is managed by an integration.
-
-        .. versionadded:: 1.6
-        """
-        return self.tags is not None and self.tags.is_integration()
-
-    def is_assignable(self) -> bool:
-        """:class:`bool`: Whether the role is able to be assigned or removed by the bot.
-
-        .. versionadded:: 2.0
-        """
-        me = self.guild.me
-        return (
-            not self.is_default()
-            and not self.managed
-            and (me.top_role > self or me.id == self.guild.owner_id)
-        )
-
     @property
     def permissions(self) -> Permissions:
         """:class:`Permissions`: Returns the role's permissions."""
         return Permissions(self._permissions)
-
-    @property
-    def colour(self) -> Colour:
-        """:class:`Colour`: Returns the role colour. An alias exists under ``color``."""
-        return Colour(self._colour)
-
-    @property
-    def color(self) -> Colour:
-        """:class:`Colour`: Returns the role color. An alias exists under ``colour``."""
-        return self.colour
 
     @property
     def created_at(self) -> datetime.datetime:
@@ -335,16 +268,6 @@ class Role(Hashable):
 
         role_id = self.id
         return [member for member in all_members if member._roles.has(role_id)]
-
-    @property
-    def icon(self) -> Optional[Union[Asset, str]]:
-        """Optional[Union[:class:`Asset`, :class:`str`]]: Returns the role's icon asset or its
-        unicode emoji, if available."""
-        if self._icon is None:
-            return None
-        if len(self._icon) == 1:
-            return self._icon
-        return Asset._from_icon(self._state, self.id, self._icon, "role")
 
     async def _move(self, position: int, reason: Optional[str]) -> None:
         if position <= 0:
