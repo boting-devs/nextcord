@@ -41,12 +41,6 @@ class BaseUser(_UserTag):
         "name",
         "id",
         "discriminator",
-        "_avatar",
-        "_banner",
-        "_accent_colour",
-        "bot",
-        "system",
-        "_public_flags",
         "_state",
     )
 
@@ -54,13 +48,7 @@ class BaseUser(_UserTag):
         name: str
         id: int
         discriminator: str
-        bot: bool
-        system: bool
         _state: ConnectionState
-        _avatar: Optional[str]
-        _banner: Optional[str]
-        _accent_colour: Optional[str]
-        _public_flags: int
 
     def __init__(
         self, *, state: ConnectionState, data: Union[PartialUserPayload, UserPayload]
@@ -69,10 +57,7 @@ class BaseUser(_UserTag):
         self._update(data)
 
     def __repr__(self) -> str:
-        return (
-            f"<BaseUser id={self.id} name={self.name!r} discriminator={self.discriminator!r}"
-            f" bot={self.bot} system={self.system}>"
-        )
+        return f"<BaseUser id={self.id} name={self.name!r} discriminator={self.discriminator!r}>"
 
     def __str__(self) -> str:
         return f"{self.name}#{self.discriminator}"
@@ -90,12 +75,6 @@ class BaseUser(_UserTag):
         self.name = data["username"]
         self.id = int(data["id"])
         self.discriminator = data["discriminator"]
-        self._avatar = data["avatar"]
-        self._banner = data.get("banner", None)
-        self._accent_colour = data.get("accent_color", None)
-        self._public_flags = data.get("public_flags", 0)
-        self.bot = data.get("bot", False)
-        self.system = data.get("system", False)
 
     @classmethod
     def _copy(cls, user: Self) -> Self:
@@ -104,12 +83,7 @@ class BaseUser(_UserTag):
         self.name = user.name
         self.id = user.id
         self.discriminator = user.discriminator
-        self._avatar = user._avatar
-        self._banner = user._banner
-        self._accent_colour = user._accent_colour
-        self.bot = user.bot
         self._state = user._state
-        self._public_flags = user._public_flags
 
         return self
 
@@ -117,106 +91,8 @@ class BaseUser(_UserTag):
         return {
             "username": self.name,
             "id": self.id,
-            "avatar": self._avatar,
             "discriminator": self.discriminator,
-            "bot": self.bot,
         }
-
-    @property
-    def public_flags(self) -> PublicUserFlags:
-        """:class:`PublicUserFlags`: The publicly available flags the user has."""
-        return PublicUserFlags._from_value(self._public_flags)
-
-    @property
-    def avatar(self) -> Optional[Asset]:
-        """Optional[:class:`Asset`]: Returns an :class:`Asset` for the avatar the user has.
-
-        If the user does not have a traditional avatar, ``None`` is returned.
-        If you want the avatar that a user has displayed, consider :attr:`display_avatar`.
-        """
-        if self._avatar is not None:
-            return Asset._from_avatar(self._state, self.id, self._avatar)
-        return None
-
-    @property
-    def default_avatar(self) -> Asset:
-        """:class:`Asset`: Returns the default avatar for a given user.
-
-        This is calculated by the user's discriminator.
-        """
-        return Asset._from_default_avatar(self._state, int(self.discriminator) % len(DefaultAvatar))
-
-    @property
-    def display_avatar(self) -> Asset:
-        """:class:`Asset`: Returns the user's display avatar.
-
-        For regular users this is just their default avatar or uploaded avatar.
-
-        .. versionadded:: 2.0
-        """
-        return self.avatar or self.default_avatar
-
-    @property
-    def banner(self) -> Optional[Asset]:
-        """Optional[:class:`Asset`]: Returns the user's banner asset, if available.
-
-        .. versionadded:: 2.0
-
-
-        .. note::
-            This information is only available via :meth:`Client.fetch_user`.
-        """
-        if self._banner is None:
-            return None
-        return Asset._from_user_banner(self._state, self.id, self._banner)
-
-    @property
-    def accent_colour(self) -> Optional[Colour]:
-        """Optional[:class:`Colour`]: Returns the user's accent colour, if applicable.
-
-        There is an alias for this named :attr:`accent_color`.
-
-        .. versionadded:: 2.0
-
-        .. note::
-
-            This information is only available via :meth:`Client.fetch_user`.
-        """
-        if self._accent_colour is None:
-            return None
-        return Colour(int(self._accent_colour))
-
-    @property
-    def accent_color(self) -> Optional[Colour]:
-        """Optional[:class:`Colour`]: Returns the user's accent color, if applicable.
-
-        There is an alias for this named :attr:`accent_colour`.
-
-        .. versionadded:: 2.0
-
-        .. note::
-
-            This information is only available via :meth:`Client.fetch_user`.
-        """
-        return self.accent_colour
-
-    @property
-    def colour(self) -> Colour:
-        """:class:`Colour`: A property that returns a colour denoting the rendered colour
-        for the user. This always returns :meth:`Colour.default`.
-
-        There is an alias for this named :attr:`color`.
-        """
-        return Colour.default()
-
-    @property
-    def color(self) -> Colour:
-        """:class:`Colour`: A property that returns a color denoting the rendered color
-        for the user. This always returns :meth:`Colour.default`.
-
-        There is an alias for this named :attr:`colour`.
-        """
-        return self.colour
 
     @property
     def mention(self) -> str:
@@ -305,30 +181,13 @@ class ClientUser(BaseUser):
         Specifies if the user has MFA turned on and working.
     """
 
-    __slots__ = ("locale", "_flags", "verified", "mfa_enabled", "__weakref__")
-
-    if TYPE_CHECKING:
-        verified: bool
-        locale: Optional[str]
-        mfa_enabled: bool
-        _flags: int
-
-    def __init__(self, *, state: ConnectionState, data: UserPayload) -> None:
-        super().__init__(state=state, data=data)
+    __slots__ = ("__weakref__",)
 
     def __repr__(self) -> str:
-        return (
-            f"<ClientUser id={self.id} name={self.name!r} discriminator={self.discriminator!r}"
-            f" bot={self.bot} verified={self.verified} mfa_enabled={self.mfa_enabled}>"
-        )
+        return f"<ClientUser id={self.id} name={self.name!r} discriminator={self.discriminator!r}>"
 
     def _update(self, data: UserPayload) -> None:
         super()._update(data)
-        # There's actually an Optional[str] phone field as well but I won't use it
-        self.verified = data.get("verified", False)
-        self.locale = data.get("locale")
-        self._flags = data.get("flags", 0)
-        self.mfa_enabled = data.get("mfa_enabled", False)
 
     async def edit(
         self,
@@ -429,7 +288,7 @@ class User(BaseUser, abc.Messageable):
         self._stored: bool = False
 
     def __repr__(self) -> str:
-        return f"<User id={self.id} name={self.name!r} discriminator={self.discriminator!r} bot={self.bot}>"
+        return f"<User id={self.id} name={self.name!r} discriminator={self.discriminator!r}>"
 
     def __del__(self) -> None:
         try:

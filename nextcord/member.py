@@ -289,7 +289,7 @@ class Member(abc.Messageable, _UserTag):
     def __repr__(self) -> str:
         return (
             f"<Member id={self._user.id} name={self._user.name!r} discriminator={self._user.discriminator!r}"
-            f" bot={self._user.bot} nick={self.nick!r} guild={self.guild!r}>"
+            f" guild={self.guild!r}>"
         )
 
     def __eq__(self, other: Any) -> bool:
@@ -386,17 +386,15 @@ class Member(abc.Messageable, _UserTag):
 
     def _update_inner_user(self, user: UserPayload) -> Optional[Tuple[User, User]]:
         u = self._user
-        original = (u.name, u._avatar, u.discriminator, u._public_flags)
+        original = (u.name, u.discriminator)
         # These keys seem to always be available
         modified = (
             user["username"],
-            user["avatar"],
             user["discriminator"],
-            user.get("public_flags", 0),
         )
         if original != modified:
             to_return = User._copy(self._user)
-            u.name, u._avatar, u.discriminator, u._public_flags = modified
+            u.name, u.discriminator = modified
             # Signal to dispatch on_user_update
             return to_return, u
 
@@ -473,29 +471,6 @@ class Member(abc.Messageable, _UserTag):
         is returned instead.
         """
         return self.nick or self.name
-
-    @property
-    def display_avatar(self) -> Asset:
-        """:class:`Asset`: Returns the member's display avatar.
-
-        For regular members this is just their avatar, but
-        if they have a guild specific avatar then that
-        is returned instead.
-
-        .. versionadded:: 2.0
-        """
-        return self.guild_avatar or self._user.avatar or self._user.default_avatar
-
-    @property
-    def guild_avatar(self) -> Optional[Asset]:
-        """Optional[:class:`Asset`]: Returns an :class:`Asset` for the guild avatar
-        the member has. If unavailable, ``None`` is returned.
-
-        .. versionadded:: 2.0
-        """
-        if self._avatar is None:
-            return None
-        return Asset._from_guild_avatar(self._state, self.guild.id, self.id, self._avatar)
 
     @property
     def activity(self) -> Optional[ActivityTypes]:

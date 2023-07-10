@@ -1364,69 +1364,69 @@ class BotBase(GroupMixin):
             exc = errors.CommandNotFound(ctx.invoked_with)
             self.dispatch("command_error", ctx, exc)
 
-    async def process_commands(self, message: Message) -> None:
-        """|coro|
+    # async def process_commands(self, message: Message) -> None:
+    #     """|coro|
 
-        This function processes the commands that have been registered
-        to the bot and other groups. Without this coroutine, none of the
-        commands will be triggered.
+    #     This function processes the commands that have been registered
+    #     to the bot and other groups. Without this coroutine, none of the
+    #     commands will be triggered.
 
-        By default, this coroutine is called inside the :func:`.on_message`
-        event. If you choose to override the :func:`.on_message` event, then
-        you should invoke this coroutine as well.
+    #     By default, this coroutine is called inside the :func:`.on_message`
+    #     event. If you choose to override the :func:`.on_message` event, then
+    #     you should invoke this coroutine as well.
 
-        This is built using other low level tools, and is equivalent to a
-        call to :meth:`~.Bot.get_context` followed by a call to :meth:`~.Bot.invoke`.
+    #     This is built using other low level tools, and is equivalent to a
+    #     call to :meth:`~.Bot.get_context` followed by a call to :meth:`~.Bot.invoke`.
 
-        This also checks if the message's author is a bot and doesn't
-        call :meth:`~.Bot.get_context` or :meth:`~.Bot.invoke` if so.
+    #     This also checks if the message's author is a bot and doesn't
+    #     call :meth:`~.Bot.get_context` or :meth:`~.Bot.invoke` if so.
 
-        Parameters
-        ----------
-        message: :class:`nextcord.Message`
-            The message to process commands for.
-        """
-        if message.author.bot:
-            return
+    #     Parameters
+    #     ----------
+    #     message: :class:`nextcord.Message`
+    #         The message to process commands for.
+    #     """
+    #     if message.author.bot:
+    #         return
 
-        ctx = await self.get_context(message)
-        await self.invoke(ctx)
+    #     ctx = await self.get_context(message)
+    #     await self.invoke(ctx)
+    #
+    # async def process_with_str(self, message: Message, content: str) -> None:
+    #     """|coro|
 
-    async def process_with_str(self, message: Message, content: str) -> None:
-        """|coro|
+    #     This function is like :meth:`.process_commands` except it
+    #     processes the provided message with different content.
 
-        This function is like :meth:`.process_commands` except it
-        processes the provided message with different content.
+    #     This is useful if you want to execute multiple commands in
+    #     a single message.
 
-        This is useful if you want to execute multiple commands in
-        a single message.
+    #     Example
+    #     -------
 
-        Example
-        -------
+    #     .. code-block:: python3
 
-        .. code-block:: python3
+    #         @bot.event
+    #         async def on_message(message):
+    #             for msg in message.content.split(";"):
+    #                 await bot.process_with_str(message, msg)
 
-            @bot.event
-            async def on_message(message):
-                for msg in message.content.split(";"):
-                    await bot.process_with_str(message, msg)
+    #     Parameters
+    #     ----------
+    #     message: :class:`nextcord.Message`
+    #         The message to process commands for.
+    #     content: :class:`str`
+    #         The content to subsitute for the message's content.
+    #     """
+    #     old_content = message.content
+    #     message.content = content
 
-        Parameters
-        ----------
-        message: :class:`nextcord.Message`
-            The message to process commands for.
-        content: :class:`str`
-            The content to subsitute for the message's content.
-        """
-        old_content = message.content
-        message.content = content
+    #     await self.process_commands(message)
 
-        await self.process_commands(message)
+    #     message.content = old_content
 
-        message.content = old_content
-
-    async def on_message(self, message) -> None:
-        await self.process_commands(message)
+    # async def on_message(self, message) -> None:
+    #     await self.process_commands(message)
 
 
 class Bot(BotBase, nextcord.Client):
