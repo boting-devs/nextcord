@@ -233,16 +233,9 @@ class Member(abc.Messageable, _UserTag):
 
     __slots__ = (
         "_roles",
-        "joined_at",
-        "premium_since",
-        "activities",
         "guild",
-        "pending",
-        "nick",
-        "_client_status",
         "_user",
         "_state",
-        "_avatar",
         "_timeout",
     )
 
@@ -250,18 +243,6 @@ class Member(abc.Messageable, _UserTag):
         name: str
         id: int
         discriminator: str
-        bot: bool
-        system: bool
-        created_at: datetime.datetime
-        default_avatar: Asset
-        avatar: Optional[Asset]
-        dm_channel: Optional[DMChannel]
-        create_dm = User.create_dm
-        mutual_guilds: List[Guild]
-        public_flags: PublicUserFlags
-        banner: Optional[Asset]
-        accent_color: Optional[Colour]
-        accent_colour: Optional[Colour]
 
     def __init__(
         self, *, data: MemberWithUserPayload, guild: Guild, state: ConnectionState
@@ -269,16 +250,7 @@ class Member(abc.Messageable, _UserTag):
         self._state: ConnectionState = state
         self._user: User = state.store_user(data["user"])
         self.guild: Guild = guild
-        self.joined_at: Optional[datetime.datetime] = utils.parse_time(data.get("joined_at"))
-        self.premium_since: Optional[datetime.datetime] = utils.parse_time(
-            data.get("premium_since")
-        )
         self._roles: utils.SnowflakeList = utils.SnowflakeList(map(int, data["roles"]))
-        self._client_status: Dict[Optional[str], str] = {None: "offline"}
-        self.activities: Tuple[ActivityTypes, ...] = tuple()
-        self.nick: Optional[str] = data.get("nick", None)
-        self.pending: bool = data.get("pending", False)
-        self._avatar: Optional[str] = data.get("avatar")
         self._timeout: Optional[datetime.datetime] = utils.parse_time(
             data.get("communication_disabled_until")
         )
@@ -308,11 +280,7 @@ class Member(abc.Messageable, _UserTag):
         return cls(data=data, guild=message.guild, state=message._state)  # type: ignore
 
     def _update_from_message(self, data: MemberPayload) -> None:
-        self.joined_at = utils.parse_time(data.get("joined_at"))
-        self.premium_since = utils.parse_time(data.get("premium_since"))
         self._roles = utils.SnowflakeList(map(int, data["roles"]))
-        self.nick = data.get("nick", None)
-        self.pending = data.get("pending", False)
         self._timeout = utils.parse_time(data.get("communication_disabled_until"))
 
     @classmethod
@@ -333,15 +301,8 @@ class Member(abc.Messageable, _UserTag):
         self = cls.__new__(cls)  # to bypass __init__
 
         self._roles = utils.SnowflakeList(member._roles, is_sorted=True)
-        self.joined_at = member.joined_at
-        self.premium_since = member.premium_since
-        self._client_status = member._client_status.copy()
         self.guild = member.guild
-        self.nick = member.nick
-        self.pending = member.pending
-        self.activities = member.activities
         self._state = member._state
-        self._avatar = member._avatar
         self._timeout = member._timeout
 
         # Reference will not be copied unless necessary by PRESENCE_UPDATE
@@ -349,37 +310,12 @@ class Member(abc.Messageable, _UserTag):
         self._user = member._user
         return self
 
-    async def _get_channel(self):
-        ch = await self.create_dm()
-        return ch
-
     def _update(self, data: MemberPayload) -> None:
-        # the nickname change is optional,
-        # if it isn't in the payload then it didn't change
-        try:
-            self.nick = data["nick"]
-        except KeyError:
-            pass
-
-        try:
-            self.pending = data["pending"]
-        except KeyError:
-            pass
-
-        self.premium_since = utils.parse_time(data.get("premium_since"))
         self._roles = utils.SnowflakeList(map(int, data["roles"]))
-        self._avatar = data.get("avatar")
-        self._timeout = utils.parse_time(data.get("communication_disabled_until"))
 
     def _presence_update(
         self, data: PartialPresenceUpdate, user: UserPayload
     ) -> Optional[Tuple[User, User]]:
-        self.activities = tuple(map(lambda x: create_activity(self._state, x), data["activities"]))
-        self._client_status = {
-            sys.intern(key): sys.intern(value) for key, value in data.get("client_status", {}).items()  # type: ignore
-        }
-        self._client_status[None] = sys.intern(data["status"])
-
         if len(user) > 1:
             return self._update_inner_user(user)
         return None
@@ -397,43 +333,6 @@ class Member(abc.Messageable, _UserTag):
             u.name, u.discriminator = modified
             # Signal to dispatch on_user_update
             return to_return, u
-
-    @property
-    def status(self) -> Union[Status, str]:
-        """Union[:class:`Status`, :class:`str`]: The member's overall status. If the value is unknown, then it will be a :class:`str` instead."""
-        return try_enum(Status, self._client_status[None])
-
-    @property
-    def raw_status(self) -> str:
-        """:class:`str`: The member's overall status as a string value.
-
-        .. versionadded:: 1.5
-        """
-        return self._client_status[None]
-
-    @status.setter
-    def status(self, value: Status) -> None:
-        # internal use only
-        self._client_status[None] = str(value)
-
-    @property
-    def mobile_status(self) -> Status:
-        """:class:`Status`: The member's status on a mobile device, if applicable."""
-        return try_enum(Status, self._client_status.get("mobile", "offline"))
-
-    @property
-    def desktop_status(self) -> Status:
-        """:class:`Status`: The member's status on the desktop client, if applicable."""
-        return try_enum(Status, self._client_status.get("desktop", "offline"))
-
-    @property
-    def web_status(self) -> Status:
-        """:class:`Status`: The member's status on the web client, if applicable."""
-        return try_enum(Status, self._client_status.get("web", "offline"))
-
-    def is_on_mobile(self) -> bool:
-        """:class:`bool`: A helper function that determines if a member is active on a mobile device."""
-        return "mobile" in self._client_status
 
     @property
     def roles(self) -> List[Role]:
@@ -461,34 +360,6 @@ class Member(abc.Messageable, _UserTag):
             The nickname mention syntax is no longer returned as it is deprecated by Discord.
         """
         return f"<@{self._user.id}>"
-
-    @property
-    def display_name(self) -> str:
-        """:class:`str`: Returns the user's display name.
-
-        For regular users this is just their username, but
-        if they have a guild specific nickname then that
-        is returned instead.
-        """
-        return self.nick or self.name
-
-    @property
-    def activity(self) -> Optional[ActivityTypes]:
-        """Optional[Union[:class:`BaseActivity`, :class:`Spotify`]]: Returns the primary
-        activity the user is currently doing. Could be ``None`` if no activity is being done.
-
-        .. note::
-
-            Due to a Discord API limitation, this may be ``None`` if
-            the user is listening to a song on Spotify with a title longer
-            than 128 characters. See :dpyissue:`1738` for more information.
-
-        .. note::
-
-            A user may have multiple activities, these can be accessed under :attr:`activities`.
-        """
-        if self.activities:
-            return self.activities[0]
 
     def mentioned_in(self, message: Message) -> bool:
         """Checks if the member is mentioned in the specified message.
@@ -738,7 +609,7 @@ class Member(abc.Messageable, _UserTag):
                 "suppress": suppress,
             }
 
-            if suppress or self.bot:
+            if suppress:
                 voice_state_payload["request_to_speak_timestamp"] = None
 
             if me:

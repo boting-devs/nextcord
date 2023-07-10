@@ -36,7 +36,8 @@ from . import errors
 from .cog import Cog
 from .context import Context
 from .core import GroupMixin
-from .help import DefaultHelpCommand, HelpCommand
+
+# from .help import DefaultHelpCommand, HelpCommand
 from .view import StringView
 
 if TYPE_CHECKING:
@@ -152,7 +153,7 @@ class BotBase(GroupMixin):
                 Union[Awaitable[_NonCallablePrefix], _NonCallablePrefix],
             ],
         ],
-        help_command: Optional[HelpCommand],
+        # help_command: Optional[HelpCommand],
         description: Optional[str],
         *,
         owner_id: Optional[int],
@@ -172,7 +173,7 @@ class BotBase(GroupMixin):
         self._check_once = []
         self._before_invoke = None
         self._after_invoke = None
-        self._help_command: Optional[HelpCommand] = None
+        # self._help_command: Optional[HelpCommand] = None
         self.description = inspect.cleandoc(description) if description else ""
         self.owner_id = owner_id
         self.owner_ids = owner_ids or set()
@@ -205,10 +206,10 @@ class BotBase(GroupMixin):
                 stacklevel=0,
             )
 
-        if help_command is MISSING:
-            self.help_command = DefaultHelpCommand()
-        else:
-            self.help_command = help_command
+        # if help_command is MISSING:
+        #     self.help_command = DefaultHelpCommand()
+        # else:
+        #     self.help_command = help_command
 
     # internal helpers
 
@@ -667,9 +668,9 @@ class BotBase(GroupMixin):
         if cog is None:
             return
 
-        help_command = self._help_command
-        if help_command and help_command.cog is cog:
-            help_command.cog = None
+        # help_command = self._help_command
+        # if help_command and help_command.cog is cog:
+        #     help_command.cog = None
         cog._eject(self)
 
         # TODO: This blind call to nextcord.Client is dumb.
@@ -1197,24 +1198,24 @@ class BotBase(GroupMixin):
 
     # help command stuff
 
-    @property
-    def help_command(self) -> Optional[HelpCommand]:
-        return self._help_command
+    # @property
+    # def help_command(self) -> Optional[HelpCommand]:
+    #     return self._help_command
 
-    @help_command.setter
-    def help_command(self, value: Optional[HelpCommand]) -> None:
-        if value is not None:
-            if not isinstance(value, HelpCommand):
-                raise TypeError("help_command must be a subclass of HelpCommand")
-            if self._help_command is not None:
-                self._help_command._remove_from_bot(self)
-            self._help_command = value
-            value._add_to_bot(self)
-        elif self._help_command is not None:
-            self._help_command._remove_from_bot(self)
-            self._help_command = None
-        else:
-            self._help_command = None
+    # @help_command.setter
+    # def help_command(self, value: Optional[HelpCommand]) -> None:
+    #     if value is not None:
+    #         if not isinstance(value, HelpCommand):
+    #             raise TypeError("help_command must be a subclass of HelpCommand")
+    #         if self._help_command is not None:
+    #             self._help_command._remove_from_bot(self)
+    #         self._help_command = value
+    #         value._add_to_bot(self)
+    #     elif self._help_command is not None:
+    #         self._help_command._remove_from_bot(self)
+    #         self._help_command = None
+    #     else:
+    #         self._help_command = None
 
     # command processing
 
@@ -1508,7 +1509,7 @@ class Bot(BotBase, nextcord.Client):
                 Union[Awaitable[_NonCallablePrefix], _NonCallablePrefix],
             ],
         ] = tuple(),
-        help_command: Optional[HelpCommand] = MISSING,
+        # help_command: Optional[HelpCommand] = MISSING,
         description: Optional[str] = None,
         *,
         max_messages: Optional[int] = 1000,
@@ -1573,7 +1574,7 @@ class Bot(BotBase, nextcord.Client):
         BotBase.__init__(
             self,
             command_prefix=command_prefix,
-            help_command=help_command,
+            # help_command=help_command,
             description=description,
             owner_id=owner_id,
             owner_ids=owner_ids,
@@ -1596,7 +1597,7 @@ class AutoShardedBot(BotBase, nextcord.AutoShardedClient):
                 Union[Awaitable[_NonCallablePrefix], _NonCallablePrefix],
             ],
         ] = tuple(),
-        help_command: Optional[HelpCommand] = MISSING,
+        # help_command: Optional[HelpCommand] = MISSING,
         description: Optional[str] = None,
         *,
         max_messages: Optional[int] = 1000,
@@ -1663,7 +1664,7 @@ class AutoShardedBot(BotBase, nextcord.AutoShardedClient):
         BotBase.__init__(
             self,
             command_prefix=command_prefix,
-            help_command=help_command,
+            # help_command=help_command,
             description=description,
             owner_id=owner_id,
             owner_ids=owner_ids,

@@ -232,23 +232,6 @@ class Context(nextcord.abc.Messageable, Generic[BotT]):
         return self.channel
 
     @property
-    def clean_prefix(self) -> str:
-        """:class:`str`: The cleaned up invoke prefix. i.e. mentions are ``@name`` instead of ``<@id>``.
-
-        .. versionadded:: 2.0
-        """
-        if self.prefix is None:
-            return ""
-
-        user = self.me
-        # this breaks if the prefix mention is not the bot itself but I
-        # consider this to be an *incredibly* strange use case. I'd rather go
-        # for this common use case rather than waste performance for the
-        # odd one.
-        pattern = re.compile(r"<@!?%s>" % user.id)
-        return pattern.sub("@%s" % user.display_name.replace("\\", r"\\"), self.prefix)
-
-    @property
     def cog(self) -> Optional[Cog]:
         """Optional[:class:`.Cog`]: Returns the cog associated with this context's command. None if it does not exist."""
 
@@ -289,86 +272,86 @@ class Context(nextcord.abc.Messageable, Generic[BotT]):
         g = self.guild
         return g.voice_client if g else None
 
-    async def send_help(self, *args: Any) -> Any:
-        """send_help(entity=<bot>)
+    # async def send_help(self, *args: Any) -> Any:
+    #     """send_help(entity=<bot>)
 
-        |coro|
+    #     |coro|
 
-        Shows the help command for the specified entity if given.
-        The entity can be a command or a cog.
+    #     Shows the help command for the specified entity if given.
+    #     The entity can be a command or a cog.
 
-        If no entity is given, then it'll show help for the
-        entire bot.
+    #     If no entity is given, then it'll show help for the
+    #     entire bot.
 
-        If the entity is a string, then it looks up whether it's a
-        :class:`Cog` or a :class:`Command`.
+    #     If the entity is a string, then it looks up whether it's a
+    #     :class:`Cog` or a :class:`Command`.
 
-        .. note::
+    #     .. note::
 
-            Due to the way this function works, instead of returning
-            something similar to :meth:`~.commands.HelpCommand.command_not_found`
-            this returns :class:`None` on bad input or no help command.
+    #         Due to the way this function works, instead of returning
+    #         something similar to :meth:`~.commands.HelpCommand.command_not_found`
+    #         this returns :class:`None` on bad input or no help command.
 
-        Parameters
-        ----------
-        entity: Optional[Union[:class:`Command`, :class:`Cog`, :class:`str`]]
-            The entity to show help for.
+    #     Parameters
+    #     ----------
+    #     entity: Optional[Union[:class:`Command`, :class:`Cog`, :class:`str`]]
+    #         The entity to show help for.
 
-        Returns
-        -------
-        Any
-            The result of the help command, if any.
-        """
-        from .core import Command, Group, wrap_callback
-        from .errors import CommandError
+    #     Returns
+    #     -------
+    #     Any
+    #         The result of the help command, if any.
+    #     """
+    #     from .core import Command, Group, wrap_callback
+    #     from .errors import CommandError
 
-        bot = self.bot
-        cmd = bot.help_command
+    #     bot = self.bot
+    #     cmd = bot.help_command
 
-        if cmd is None:
-            return None
+    #     if cmd is None:
+    #         return None
 
-        cmd = cmd.copy()
-        cmd.context = self
-        if len(args) == 0:
-            await cmd.prepare_help_command(self, None)
-            mapping = cmd.get_bot_mapping()
-            injected = wrap_callback(cmd.send_bot_help)
-            try:
-                return await injected(mapping)
-            except CommandError as e:
-                await cmd.on_help_command_error(self, e)
-                return None
+    #     cmd = cmd.copy()
+    #     cmd.context = self
+    #     if len(args) == 0:
+    #         await cmd.prepare_help_command(self, None)
+    #         mapping = cmd.get_bot_mapping()
+    #         injected = wrap_callback(cmd.send_bot_help)
+    #         try:
+    #             return await injected(mapping)
+    #         except CommandError as e:
+    #             await cmd.on_help_command_error(self, e)
+    #             return None
 
-        entity = args[0]
-        if isinstance(entity, str):
-            entity = bot.get_cog(entity) or bot.get_command(entity)
+    #     entity = args[0]
+    #     if isinstance(entity, str):
+    #         entity = bot.get_cog(entity) or bot.get_command(entity)
 
-        if entity is None:
-            return None
+    #     if entity is None:
+    #         return None
 
-        try:
-            entity.qualified_name
-        except AttributeError:
-            # if we're here then it's not a cog, group, or command.
-            return None
+    #     try:
+    #         entity.qualified_name
+    #     except AttributeError:
+    #         # if we're here then it's not a cog, group, or command.
+    #         return None
 
-        await cmd.prepare_help_command(self, entity.qualified_name)
+    #     await cmd.prepare_help_command(self, entity.qualified_name)
 
-        try:
-            if hasattr(entity, "__cog_commands__"):
-                injected = wrap_callback(cmd.send_cog_help)
-                return await injected(entity)
-            elif isinstance(entity, Group):
-                injected = wrap_callback(cmd.send_group_help)
-                return await injected(entity)
-            elif isinstance(entity, Command):
-                injected = wrap_callback(cmd.send_command_help)
-                return await injected(entity)
-            else:
-                return None
-        except CommandError as e:
-            await cmd.on_help_command_error(self, e)
+    #     try:
+    #         if hasattr(entity, "__cog_commands__"):
+    #             injected = wrap_callback(cmd.send_cog_help)
+    #             return await injected(entity)
+    #         elif isinstance(entity, Group):
+    #             injected = wrap_callback(cmd.send_group_help)
+    #             return await injected(entity)
+    #         elif isinstance(entity, Command):
+    #             injected = wrap_callback(cmd.send_command_help)
+    #             return await injected(entity)
+    #         else:
+    #             return None
+    #     except CommandError as e:
+    #         await cmd.on_help_command_error(self, e)
 
     @nextcord.utils.copy_doc(Message.reply)
     async def reply(self, content: Optional[str] = None, **kwargs: Any) -> Message:

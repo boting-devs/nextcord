@@ -38,7 +38,6 @@ if TYPE_CHECKING:
 __all__ = (
     "Converter",
     "ObjectConverter",
-    "MemberConverter",
     "UserConverter",
     "MessageConverter",
     "PartialMessageConverter",
@@ -148,97 +147,6 @@ class ObjectConverter(IDConverter[nextcord.Object]):
         result = int(match.group(1))
 
         return nextcord.Object(id=result)
-
-
-class MemberConverter(IDConverter[nextcord.Member]):
-    """Converts to a :class:`~nextcord.Member`.
-
-    All lookups are via the local guild. If in a DM context, then the lookup
-    is done by the global cache.
-
-    The lookup strategy is as follows (in order):
-
-    1. Lookup by ID.
-    2. Lookup by mention.
-    3. Lookup by name#discrim
-    4. Lookup by name
-    5. Lookup by nickname
-
-    .. versionchanged:: 1.5
-         Raise :exc:`.MemberNotFound` instead of generic :exc:`.BadArgument`
-
-    .. versionchanged:: 1.5.1
-        This converter now lazily fetches members from the gateway and HTTP APIs,
-        optionally caching the result if :attr:`.MemberCacheFlags.joined` is enabled.
-    """
-
-    async def query_member_named(self, guild, argument: str):
-        cache = guild._state.member_cache_flags.joined
-        if len(argument) > 5 and argument[-5] == "#":
-            username, _, discriminator = argument.rpartition("#")
-            members = await guild.query_members(username, limit=100, cache=cache)
-            return nextcord.utils.get(members, name=username, discriminator=discriminator)
-        else:
-            members = await guild.query_members(argument, limit=100, cache=cache)
-            finder: Callable[[Member], bool] = lambda m: m.name == argument or m.nick == argument
-            return nextcord.utils.find(finder, members)
-
-    async def query_member_by_id(self, bot, guild, user_id):
-        ws = bot._get_websocket(shard_id=guild.shard_id)
-        cache = guild._state.member_cache_flags.joined
-        if ws.is_ratelimited():
-            # If we're being rate limited on the WS, then fall back to using the HTTP API
-            # So we don't have to wait ~60 seconds for the query to finish
-            try:
-                member = await guild.fetch_member(user_id)
-            except nextcord.HTTPException:
-                return None
-
-            if cache:
-                guild._add_member(member)
-            return member
-
-        # If we're not being rate limited then we can use the websocket to actually query
-        members = await guild.query_members(limit=1, user_ids=[user_id], cache=cache)
-        if not members:
-            return None
-        return members[0]
-
-    async def convert(self, ctx: Context, argument: str) -> nextcord.Member:
-        bot = ctx.bot
-        match = self._get_id_match(argument) or re.match(r"<@!?([0-9]{15,20})>$", argument)
-        guild = ctx.guild
-        result = None
-        user_id = None
-        if match is None:
-            # not a mention...
-            if guild:
-                result = guild.get_member_named(argument)
-            else:
-                result = _get_from_guilds(bot, "get_member_named", argument)
-        else:
-            user_id = int(match.group(1))
-            if guild:
-                result = guild.get_member(user_id) or _utils_get(ctx.message.mentions, id=user_id)
-            else:
-                result = _get_from_guilds(bot, "get_member", user_id)
-
-        if result is None:
-            if guild is None:
-                raise MemberNotFound(argument)
-
-            if user_id is not None:
-                result = await self.query_member_by_id(bot, guild, user_id)
-            else:
-                result = await self.query_member_named(guild, argument)
-
-            if not result:
-                raise MemberNotFound(argument)
-
-        if not isinstance(result, nextcord.Member):
-            raise MemberNotFound(argument)
-
-        return result
 
 
 class UserConverter(IDConverter[nextcord.User]):
@@ -856,7 +764,6 @@ def is_generic_type(tp: Any, *, _GenericAlias: Type = _GenericAlias) -> bool:
 
 CONVERTER_MAPPING: Dict[Type[Any], Any] = {
     nextcord.Object: ObjectConverter,
-    nextcord.Member: MemberConverter,
     nextcord.User: UserConverter,
     nextcord.Message: MessageConverter,
     nextcord.PartialMessage: PartialMessageConverter,

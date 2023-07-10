@@ -1289,18 +1289,6 @@ class Client:
 
         await self.ws.change_presence(activity=activity, status=status_str)
 
-        for guild in self._connection.guilds:
-            me = guild.me
-            if me is None:
-                continue
-
-            if activity is not None:
-                me.activities = (activity,)  # type: ignore
-            else:
-                me.activities = ()
-
-            me.status = status
-
     # Guild stuff
 
     def fetch_guilds(

@@ -576,33 +576,17 @@ class AutoShardedClient(Client):
 
         if status is None:
             status_value = "online"
-            status_enum = Status.online
         elif status is Status.offline:
             status_value = "invisible"
-            status_enum = Status.offline
         else:
-            status_enum = status
             status_value = str(status)
 
         if shard_id is None:
             for shard in self.__shards.values():
                 await shard.ws.change_presence(activity=activity, status=status_value)
-
-            guilds = self._connection.guilds
         else:
             shard = self.__shards[shard_id]
             await shard.ws.change_presence(activity=activity, status=status_value)
-            guilds = [g for g in self._connection.guilds if g.shard_id == shard_id]
-
-        activities = () if activity is None else (activity,)
-        for guild in guilds:
-            me = guild.me
-            if me is None:
-                continue
-
-            # Member.activities is typehinted as Tuple[ActivityType, ...], we may be setting it as Tuple[BaseActivity, ...]
-            me.activities = activities  # type: ignore
-            me.status = status_enum
 
     def is_ws_ratelimited(self) -> bool:
         """:class:`bool`: Whether the websocket is currently rate limited.
